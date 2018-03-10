@@ -9,10 +9,11 @@ import RPi.GPIO as GPIO
 from hx711 import HX711  # https://github.com/tatobari/hx711py
 from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient
 
+from scaleconfig import scaleConfigs
+from scaleconfig import THING
+from scaleconfig import ENDPOINT
+
 LOGFILE = "/var/log/scale.log"
-ENDPOINT = "YOUR_AWS_ENDPOINT.iot.REGION.amazonaws.com"
-GROUP = "YOUR_GROUP_NAME"
-THING = "YOUR_THING_NAME"
 
 ## Debug mode (verbose)
 #FAST_SAMPLE_PERIOD = 1
@@ -23,23 +24,6 @@ FAST_SAMPLE_PERIOD = 10
 SLOW_SAMPLE_PERIOD = 180
 
 UPDATES_PER_READ = 5 # scale readings per mqtt result
-
-# Scale configurations
-scaleConfigs = [
-  # Scale 0 configuration
-  {'name': 'LeftFridgeLeftTap',
-   'data_gpio': 24,
-   'clk_gpio': 23,
-   'ref_unit': 24.675,
-   'tare_offset' : 8671108 },
-
-#  # Scale 1 configuration
-#  {'name': 'LeftFridgeRightTap',
-#   'data_gpio': 5,
-#   'clk_gpio': 6,
-#   'ref_unit': 24.675,
-#   'tare_offset' : 8671108 }
-  ]
 
 def cleanAndExit():
     GPIO.cleanup()
@@ -148,7 +132,6 @@ while True:
                 timestamp = int(time.time())
                 weight = round(statistics.median(data[j])[0], 1)
                 message[scalename] = dict()
-                message[scalename]['group'] = GROUP
                 message[scalename]['thing'] = THING
                 message[scalename]['timestamp'] = timestamp
                 message[scalename]['weight'] = weight

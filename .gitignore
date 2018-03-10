@@ -1,0 +1,7 @@
+# scaleconfig.py has local changes that should't be pushed.
+# To avoid git tracking local changes here, run:
+#   git update-index --assume-unchanged scaleconfig.py
+# If you do need to update the tracked file and commit the change run:
+#   git update-index --no-assume-unchanged scaleconfig.py
+
+__pycache__
