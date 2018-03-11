@@ -1,12 +1,12 @@
 var AWS = require('aws-sdk');
 var iot = new AWS.Iot();
-var results = { 'results': [] };;
 
 // Could figure this out programaticly, but that takes time.
 // Comes from 'aws iot describe-endpoint'
 var ENDPOINT = "a3f9rjliro4kji.iot.us-west-2.amazonaws.com"
 
 exports.handler = (event, context, callback) => {
+  var results = { 'results': [] };
   //console.log('DZ: Received event:', event);
   
   const group = event.pathParameters.group;
@@ -54,6 +54,7 @@ exports.handler = (event, context, callback) => {
             var response = {
               "statusCode": 200,
               "headers": {
+                "Access-Control-Allow-Origin": "http://beer-status.s3-website-us-west-2.amazonaws.com"
               },
               "body": JSON.stringify(results),
               "isBase64Encoded": false
