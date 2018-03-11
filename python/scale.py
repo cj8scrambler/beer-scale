@@ -11,6 +11,7 @@ from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient
 
 from scaleconfig import scaleConfigs
 from scaleconfig import THING
+from scaleconfig import GROUP
 from scaleconfig import ENDPOINT
 
 LOGFILE = "/var/log/scale.log"
@@ -100,6 +101,8 @@ myMQTTClient.configureOfflinePublishQueueing(-1)  # Infinite offline Publish que
 myMQTTClient.configureDrainingFrequency(2)  # Draining: 2 Hz
 myMQTTClient.configureConnectDisconnectTimeout(10)  # 10 sec
 myMQTTClient.configureMQTTOperationTimeout(5)  # 5 sec
+print ("%s: Connect to MQTT endpiont: %s  thing: %s" %
+       (datetime.datetime.now(), ENDPOINT, THING))
 myMQTTClient.connect()
 myMQTTClient.subscribe("device/+/tare", 1, handleIncoming)
 
@@ -125,6 +128,7 @@ while True:
 
         if (updates % UPDATES_PER_READ) == 0:
             # Send a single MQTT message with all of the scale readings
+            sleep_time = SLOW_SAMPLE_PERIOD
             message = {}
             j = 0
             while j < len(scaleDevices):
@@ -133,23 +137,25 @@ while True:
                 weight = round(statistics.median(data[j])[0], 1)
                 message[scalename] = dict()
                 message[scalename]['thing'] = THING
+                message[scalename]['group'] = GROUP
                 message[scalename]['timestamp'] = timestamp
                 message[scalename]['weight'] = weight
                 messageJson = json.dumps(message)
+
+                # Save last 5 reports to check std deviation.  If there is
+                # a big change on any scale, then increase sampling rate.
+                mqtt[j].append(weight)
+                while len(mqtt[j]) > 5:
+                    mqtt[j].pop(0)
+                if (len(mqtt[j]) > 1):
+                    stdev = statistics.stdev(mqtt[j])
+                    if (stdev > 10):
+                        sleep_time = FAST_SAMPLE_PERIOD
+                    print ("stdev: %.2f  sample rate: %d" % (stdev, sleep_time));
                 j += 1
             myMQTTClient.publish("device/" + THING + "/data", messageJson, 1)
-            print ("%s: MQTT send to deivce/%s/data: %s" % (datetime.datetime.now(), THING, messageJson))
+            print ("%s: MQTT send to device/%s/data: %s" % (datetime.datetime.now(), THING, messageJson))
 
-            mqtt[i].append(weight)
-            while len(mqtt[i]) > 5:
-                mqtt[i].pop(0)
-            if (len(mqtt[i]) > 1):
-                stdev = statistics.stdev(mqtt[i])
-                if (stdev > 10):
-                    sleep_time = FAST_SAMPLE_PERIOD
-                else:
-                    sleep_time = SLOW_SAMPLE_PERIOD
-                print ("stdev: %.2f  sample rate: %d" % (stdev, sleep_time));
         sys.stdout.flush()
         sys.stderr.flush()
         os.fsync(sys.stdout.fileno())
