@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Fulton Beer Status</title>
+</head>
+
+<body onload="getKegState();">
+
+<center><h2>Beer Info</h2></center>
+
+<center><p id="beerstatus"></p></center>
+
+<script>
+group = "FultonKitchen";
+apiUrl = "https://b67qghztgl.execute-api.us-west-2.amazonaws.com/dev/";
+function getKegState(sel) {
+  var xmlhttp, myObj, x, txt = "";
+
+  fetch(apiUrl + group)
+    .then(function(response){
+        return response.json();
+    })
+    .then(function(json){
+      txt += "<table border='1'>"
+      txt += "<tr><th>Tap</th><th>Weight</th><th>Last Update</th></tr>"
+      for (x in json.results) {
+        var tap = json.results[x];
+        var lastUpdate = new Date(tap['timestamp']*1000);
+        txt += "<tr><td>" + tap['tap'] + "</td>";
+        txt += "<td>" + tap['weight'].toString() + "</td>";
+        txt += "<td>" + lastUpdate + "</td></tr>";
+      }
+      txt += "</table>"
+      document.getElementById("beerstatus").innerHTML = txt;
+    })
+    .catch(function(error) {
+      console.log("problem:", error);
+    });   
+}
+</script>
+</body>
+</html>
