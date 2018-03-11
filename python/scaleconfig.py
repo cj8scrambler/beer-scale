@@ -1,13 +1,10 @@
 # Configuration Data
 
 #AWS IOT Thing Endpoint (Under AWS console IOT Thing: Interact)
-ENDPOINT = "a3f9rjliro4kji.iot.us-west-2.amazonaws.com"
-
-#AWS IOT group name that the thing is a member of
-GROUP = "FultonKitchen"
+ENDPOINT = "SOME_NAME.iot.REGION.amazonaws.com"
 
 #AWS IOT thing name
-THING = "weight_pi"
+THING = "NAME_OF_THING"
 
 # Scale configurations
 scaleConfigs = [
@@ -22,6 +19,6 @@ scaleConfigs = [
   {'name': 'LeftFridgeRightTap',
    'data_gpio': 5,
    'clk_gpio': 6,
-   'ref_unit': 24.675,
-   'tare_offset' : 8671108 }
-]
+   'ref_unit': 22.375,
+   'tare_offset' : 9011438 }
+  ]
