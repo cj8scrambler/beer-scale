@@ -31,16 +31,18 @@ exports.handler = (event, context, callback) => {
                 context.fail(err);
               } else {
                 console.log('DZ:', item, "has:", shadowData)
-                var list = []
+                var results = {};
+
+                results['results'] = [];
                 var jsonPayload = JSON.parse(shadowData.payload);
                 if (jsonPayload.state.reported != undefined) {
-                  for (var i in jsonPayload.state.reported.scales) {
-                    console.log('DZ: thing:', item, '  scale:', i, ' weight:', jsonPayload.state.reported.scales[i]);
+                  for (var i in jsonPayload.state.reported.taps) {
+                    console.log('DZ: thing:', item, '  tap:', i, ' weight:', jsonPayload.state.reported.taps[i]);
                     var entry = {};
-                    entry['tap'] = jsonPayload.state.reported.scales[i].scale;
-                    entry['weight'] = jsonPayload.state.reported.scales[i].weight;
+                    entry['tap'] = jsonPayload.state.reported.taps[i].name;
+                    entry['weight'] = jsonPayload.state.reported.taps[i].weight;
                     console.log("DZ: entry is:", entry)
-                    list.push(entry);
+                    results['results'].push(entry);
                   }
                 }
 
@@ -48,7 +50,7 @@ exports.handler = (event, context, callback) => {
                   "statusCode": 200,
                   "headers": {
                   },
-                  "body": JSON.stringify(list),
+                  "body": JSON.stringify(results),
                   "isBase64Encoded": false
                 };
                 context.succeed(response);
