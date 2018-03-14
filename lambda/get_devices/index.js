@@ -41,6 +41,15 @@ exports.handler = (event, context, callback) => {
                   entry['tap'] = jsonPayload.state.reported.taps[i].tap;
                   entry['timestamp'] = jsonPayload.state.reported.taps[i].timestamp;
                   entry['weight'] = jsonPayload.state.reported.taps[i].weight;
+                  entry['glasses'] = "20";
+                  entry['beername'] = "Delicious IPA";
+                  entry['brewer'] = "Corncob Brewery"
+                  entry['brewerlocation'] = "Ames, IA";
+                  entry['description'] = "Some random beer";
+                  entry['ibu'] = "78";
+                  entry['abv'] = "8.7";
+                  entry['color'] = "28";
+                  entry['colorunits'] = "srm";
                   console.log("DZ: entry is:", entry)
                   results['results'].push(entry);
                 }
