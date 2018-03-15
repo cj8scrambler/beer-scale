@@ -16,15 +16,17 @@ from scaleconfig import ENDPOINT
 
 LOGFILE = "/var/log/scale.log"
 
-## Debug mode (verbose)
-#FAST_SAMPLE_PERIOD = 1
-#SLOW_SAMPLE_PERIOD = 5 
-
-# Regular mode
-FAST_SAMPLE_PERIOD = 10
-SLOW_SAMPLE_PERIOD = 180
-
-UPDATES_PER_READ = 5 # scale readings per mqtt result
+# Paramaters for MQTT reporting rate control
+# Samples are taken and stored locally.  A median of those samples
+# is taken and reported via MQTT.  If the range of sample data has
+# a lot of variance (weight change detected), then the mqtt reporting
+# rate moves to the higher rate.  If the MQTT data reported has low
+# variance (weight has stabalized for some time), then the mqtt reporting
+# rate moves to the lower rate.
+SAMPLE_PERIOD = 5           # seconds between reading scale data
+MAX_SAMPLES_PER_MQTT = 180  # Max samples between MQTT updates (happens with stable weight)
+MEDIAN_FILTER_SIZE = 5
+MQTT_ALLOWED_VARIANCE = 5   # Variance (in grams) which triggers a new MQTT update
 
 def cleanAndExit():
     GPIO.cleanup()
@@ -60,8 +62,9 @@ def handleIncoming(client, userdata, message):
         print(message.topic)
     
 
+# Neet to allocate these dynamicaly based on number of scales
 data = [[], []]
-mqtt = [[], []]
+last_mqtt_report = [0,0];
 updates = 0
 scaleDevices = []
 
@@ -106,60 +109,60 @@ print ("%s: Connect to MQTT endpiont: %s  thing: %s" %
 myMQTTClient.connect()
 myMQTTClient.subscribe("device/+/tare", 1, handleIncoming)
 
-sleep_time = FAST_SAMPLE_PERIOD
 while True:
     try:
+        weight_change = False;
         updates += 1
         # Read each scale
         i = 0
         while i < len(scaleDevices):
-            val = scaleDevices[i].get_weight(5)
+            val = scaleDevices[i].get_weight(5)[0]
             data[i].append(val)
 
-            while len(data[i]) > UPDATES_PER_READ:
+            while len(data[i]) > MEDIAN_FILTER_SIZE:
                 data[i].pop(0)
 
-            print ("%s: %s:  %.1f kg    [Val: %.2f  Size: %d/%d  period: %d]" %
+            print ("%s: %s:  %.1f kg    [Val: %.2f  Size: %d/%d   update: %d/%.1f]" %
                     (datetime.datetime.now(), scaleConfigs[i]['name'], statistics.median(data[i]) / 1000.0,
-                     val, len(data[i]), UPDATES_PER_READ, sleep_time))
+                     val, len(data[i]), MEDIAN_FILTER_SIZE, updates % MAX_SAMPLES_PER_MQTT, MAX_SAMPLES_PER_MQTT))
             scaleDevices[i].power_down()
             scaleDevices[i].power_up()
+
+            if (abs(statistics.median(data[i]) - last_mqtt_report[i]) > MQTT_ALLOWED_VARIANCE):
+                print ("  Detected weight change on %s: delta: %.1f" % (scaleConfigs[i]['name'], statistics.median(data[i]) - last_mqtt_report[i]));
+                weight_change = True;
             i += 1
 
-        if (updates % UPDATES_PER_READ) == 0:
+        if ((weight_change == True) or ((updates % MAX_SAMPLES_PER_MQTT) == 0)):
             # Send a single MQTT message with all of the scale readings
-            sleep_time = SLOW_SAMPLE_PERIOD
-            message = {}
+            update = {}
+            update['state'] = {}
+            update['state']['reported'] = {}
             j = 0
             while j < len(scaleDevices):
                 scalename = scaleConfigs[j]['name']
                 timestamp = int(time.time())
-                weight = round(statistics.median(data[j])[0], 1)
-                message[scalename] = dict()
-                message[scalename]['thing'] = THING
-                message[scalename]['group'] = GROUP
-                message[scalename]['timestamp'] = timestamp
-                message[scalename]['weight'] = weight
-                messageJson = json.dumps(message)
+                weight = round(statistics.median(data[j]), 1)
+                update['state']['reported'][scalename] = dict()
+                update['state']['reported'][scalename]['thing'] = THING
+                update['state']['reported'][scalename]['group'] = GROUP
+                update['state']['reported'][scalename]['timestamp'] = timestamp
+                update['state']['reported'][scalename]['weight'] = weight
 
-                # Save last 5 reports to check std deviation.  If there is
-                # a big change on any scale, then increase sampling rate.
-                mqtt[j].append(weight)
-                while len(mqtt[j]) > 5:
-                    mqtt[j].pop(0)
-                if (len(mqtt[j]) > 1):
-                    stdev = statistics.stdev(mqtt[j])
-                    if (stdev > 10):
-                        sleep_time = FAST_SAMPLE_PERIOD
-                    print ("stdev: %.2f  sample rate: %d" % (stdev, sleep_time));
+                last_mqtt_report[j] = weight;
+
                 j += 1
-            myMQTTClient.publish("device/" + THING + "/data", messageJson, 1)
-            print ("%s: MQTT send to device/%s/data: %s" % (datetime.datetime.now(), THING, messageJson))
+            messageJson = json.dumps(update)
+            myMQTTClient.publish("$aws/things/" + THING + "/shadow/update", messageJson, 1)
+            print ("%s: MQTT send to %s: %s" % (datetime.datetime.now(),
+                   "$aws/things/" + THING + "/shadow/update", messageJson))
+            updates = 0;
+
 
         sys.stdout.flush()
         sys.stderr.flush()
         os.fsync(sys.stdout.fileno())
         os.fsync(sys.stderr.fileno())
-        time.sleep(sleep_time)
+        time.sleep(SAMPLE_PERIOD)
     except (KeyboardInterrupt, SystemExit):
         cleanAndExit()
