@@ -138,16 +138,18 @@ while True:
             update = {}
             update['state'] = {}
             update['state']['reported'] = {}
+            update['state']['reported']['taps'] = []
             j = 0
             while j < len(scaleDevices):
-                scalename = scaleConfigs[j]['name']
-                timestamp = int(time.time())
                 weight = round(statistics.median(data[j]), 1)
-                update['state']['reported'][scalename] = dict()
-                update['state']['reported'][scalename]['thing'] = THING
-                update['state']['reported'][scalename]['group'] = GROUP
-                update['state']['reported'][scalename]['timestamp'] = timestamp
-                update['state']['reported'][scalename]['weight'] = weight
+                datapoint = dict()
+                datapoint['tap'] = scaleConfigs[j]['name']
+                datapoint['thing'] = THING
+                datapoint['group'] = GROUP
+                datapoint['timestamp'] = int(time.time())
+                datapoint['weight'] = weight
+
+                update['state']['reported']['taps'].append(datapoint)
 
                 last_mqtt_report[j] = weight;
 
