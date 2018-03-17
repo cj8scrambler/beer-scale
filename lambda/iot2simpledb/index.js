@@ -14,29 +14,28 @@ exports.handler = (event, context, callback) => {
 
   var group;
   var thing;
-  var taps = [];
   var jobs = [];
-  for (var scale in event){
-    group = event[scale].group;
-    thing = event[scale].thing;
-    console.log('DZ: working on  entry:', event[scale]);
-    taps.push({"name":  scale, "weight": event[scale].weight, "timestamp": event[scale].timestamp});
+  var scaledata = event['state']['reported']['taps'];
+  for (var scale in scaledata){
+    console.log('DZ: working on  entry:', scaledata[scale]);
+    name = scaledata[scale].tap;
+    group = scaledata[scale].group;
     params.Items.push(
      { Attributes: [
         {
           Name: 'timestamp',
-          Value: event[scale].timestamp.toString(),
+          Value: scaledata[scale].timestamp.toString(),
         },
         {
           Name: 'name',
-          Value: scale,
+          Value: name
         },
         {
           Name: 'weight',
-          Value: event[scale].weight.toString(),
+          Value: scaledata[scale].weight.toString(),
         },
       ],
-      Name: scale + ":" + event[scale].timestamp.toString(),
+      Name: name + ":" + scaledata[scale].timestamp.toString(),
      });
   }
   params.DomainName = group;
@@ -49,32 +48,10 @@ exports.handler = (event, context, callback) => {
       console.log("DB Update Error: " + JSON.stringify(err));
     }
     else {
-      console.log(thing.toString() + " DB update success: " + JSON.stringify(params));
+      console.log("DB update success: " + JSON.stringify(params));
     }
   }).promise());
   
-  var update = {
-    state: {
-      reported: {
-        taps
-      }
-    }
-  };
-  console.log('DZ; pushing shadow update job');
-  var iotdata = new AWS.IotData({endpoint: ENDPOINT});
-  jobs.push(iotdata.updateThingShadow(
-    {
-      payload: JSON.stringify(update),
-      thingName: thing.toString()
-    }, function(err, data) {
-      console.log('DZ;   shadow update callback');
-      if (err) {
-        console.log("Shadow Update failure:", err);
-      } else {
-        console.log(thing.toString() + " shadow update success:" + JSON.stringify(data));
-      }
-    }).promise());
-
   Promise.all(jobs).then(function() {
       console.log("All jobs done");
       context.succeed('data update success');

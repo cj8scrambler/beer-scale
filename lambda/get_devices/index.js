@@ -38,7 +38,7 @@ exports.handler = (event, context, callback) => {
                 for (var i in jsonPayload.state.reported.taps) {
                   console.log('DZ: thing:', item, '  tap:', i, ' weight:', jsonPayload.state.reported.taps[i]);
                   var entry = {};
-                  entry['tap'] = jsonPayload.state.reported.taps[i].name;
+                  entry['tap'] = jsonPayload.state.reported.taps[i].tap;
                   entry['timestamp'] = jsonPayload.state.reported.taps[i].timestamp;
                   entry['weight'] = jsonPayload.state.reported.taps[i].weight;
                   console.log("DZ: entry is:", entry)
