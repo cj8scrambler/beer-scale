@@ -7,7 +7,7 @@
 
 <body onload="getKegState();">
 
-<center><h2>Beer Info</h2></center>
+<center><h2>ORD Beer Info</h2></center>
 
 <center><p id="beerstatus"></p></center>
 
@@ -22,12 +22,26 @@ function getKegState(sel) {
         return response.json();
     })
     .then(function(json){
-      txt += "<table border='1'>"
-      txt += "<tr><th>Tap</th><th>Weight</th><th>Last Update</th></tr>"
+      txt += "<table border='0' cellspacing='10'>";
+      txt += "<tr><th>Tap</th>";
+      txt += "    <th>Beer</th>";
+      txt += "    <th>Style</th>";
+      txt += "    <th>Brewery</th>";
+      txt += "    <th>ABV</th>";
+      txt += "    <th>IBU</th>";
+      txt += "    <th>Color</th>";
+      txt += "    <th>Keg Weight</th>";
+      txt += "    <th>Last Update</th></tr>";
       for (x in json.results) {
         var tap = json.results[x];
         var lastUpdate = new Date(tap['timestamp']*1000);
         txt += "<tr><td>" + tap['tap'] + "</td>";
+        txt += "<td>" + tap['beername'] + "</td>";
+        txt += "<td>" + tap['style'] + "</td>";
+        txt += "<td>" + tap['brewer'] + "(" + tap['brewerlocation'] + ")</td>";
+        txt += "<td>" + tap['abv'] + "%</td>";
+        txt += "<td>" + (('ibu' in tap) ? tap['ibu'] : "") + "</td>";
+        txt += "<td>" + (('color' in tap) ? (tap['color'] + " SRM") : "") + "</td>";
         txt += "<td>" + tap['weight'].toString() + "</td>";
         txt += "<td>" + lastUpdate + "</td></tr>";
       }
