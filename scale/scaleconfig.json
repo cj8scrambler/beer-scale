@@ -1,0 +1,19 @@
+{
+  "endpoint":  "SOME_NAME.iot.REGION.amazonaws.com",
+  "group":     "BarKeggerators",
+  "thing":     "LeftFridge",
+  "hx711":  [
+    {
+      "name": "LeftFridgeLeftTap",
+      "data_gpio": 24,
+      "clk_gpio": 23,
+      "ref_unit": 24.675,
+      "tare_offset" : 8671108 },
+    {
+      "name": "LeftFridgeRightTap",
+      "data_gpio": 5,
+      "clk_gpio": 6,
+      "ref_unit": 24.675,
+      "tare_offset" : 8671108 }
+  ]
+}
