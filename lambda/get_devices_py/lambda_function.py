@@ -2,6 +2,14 @@ import logging
 import boto3
 import json
 
+# We'll use the weight of water for now
+BEER_WEIGHT_PER_LITER = 1000
+
+# Default keg volume (in liters)
+volume = 19.5
+# Default keg tare weight (in grams)
+tare = 7200
+
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 iot = boto3.client('iot')
@@ -34,11 +42,12 @@ def lambda_handler(event, context):
         if 'reported' in thingState['state']:
             for tapdata in thingState['state']['reported']['taps']:
                 data = {}
+                weight = tapdata['weight']
                 tapname = tapdata['tap']
                 logger.debug("got tapdata: %s" % tapdata)
                 logger.info("Updating tap: %s" % tapname)
                 data['tap'] = tapname
-                data['weight'] = tapdata['weight']
+                data['weight'] = weight
                 data['timestamp'] = tapdata['timestamp']
                 sdbData = sdb.get_attributes(DomainName = group + ".config",
                                              ItemName = tapname,
@@ -48,7 +57,14 @@ def lambda_handler(event, context):
                         if element['Value']:
                             logger.debug("data[%s] = %s" % (element['Name'], element['Value']))
                             data[element['Name']] = element['Value']
-
+                            if element['Name'] == "containervolume":
+                                volume = float(element['Value']);
+                            if element['Name'] == "containertare":
+                                tare = int(element['Value']);
+                level = 100.0 * ((weight - tare) / (volume * BEER_WEIGHT_PER_LITER))
+                logger.info("DZ: level = (%d - %d) / (%.1f * %s) = %.1f" % (weight, tare, volume, BEER_WEIGHT_PER_LITER, level))
+                level = max(min(level, 100.0), 0)
+                data['level'] = level;
                 result['results'].append(data)
     response = {}
     response["statusCode"] = 200
