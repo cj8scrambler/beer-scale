@@ -1,6 +1,6 @@
 #!/bin/bash
 
-for DIR in get_devices get_devices_py iot2simpledb
+for DIR in get_devices get_devices_py iot2simpledb get_history
 do
   echo "$DIR:"
   cd ${DIR}
