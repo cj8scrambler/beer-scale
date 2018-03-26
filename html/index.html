@@ -11,7 +11,16 @@
 
 <center><p id="beerstatus"></p></center>
 
+<div id="container" style="min-width: 310px; height: 400px; margin: 0 auto"></div>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="https://code.highcharts.com/modules/series-label.js"></script>
+<script src="https://code.highcharts.com/modules/exporting.js"></script>
+
 <script>
+length = "days=14"
+tapname = "LeftFridgeLeftTap";
 group = "FultonKitchen";
 apiUrl = "https://b67qghztgl.execute-api.us-west-2.amazonaws.com/dev/";
 function getKegState(sel) {
@@ -47,6 +56,42 @@ function getKegState(sel) {
       }
       txt += "</table>"
       document.getElementById("beerstatus").innerHTML = txt;
+
+      console.log("DZ: gonna graph");
+      var options = {
+        chart: {
+          renderTo: 'container',
+          type: 'spline'
+        },
+        title: {
+          text: 'Tap History'
+        },
+        xAxis: {
+          type: 'datetime',
+        },
+        yAxis: {
+          title: {
+            text: 'Weight (g)'
+          },
+        },
+        tooltip: {
+          headerFormat: '<b>{series.name}</b><br>',
+          pointFormat: '{point.x:%e. %b}: {point.y:.2f} m'
+        },
+        colors: ['#6CF', '#39F', '#06C', '#036', '#000'],
+        series: [{}]
+      };
+
+      console.log("DZ: options:", options);
+      var url =  apiUrl + group + "/" + tapname + "/history/?" + length;
+      console.log("DZ: fetching: ", url);
+      jQuery.getJSON(url,  function(data) {
+        console.log("DZ: got tap data:", data);
+        options.series[0].data = data;
+        options.series[0].name = tapname;
+        console.log("DZ: generating chart...");
+        var chart = new Highcharts.Chart(options);
+      });
     })
     .catch(function(error) {
       console.log("problem:", error);
