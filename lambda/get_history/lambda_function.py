@@ -38,7 +38,7 @@ def lambda_handler(event, context):
         if 'days' in event['queryStringParameters']:
             days = event['queryStringParameters']['days']
 
-    query = "select timestamp,weight from `FultonKitchen` where `timestamp` >= '"
+    query = "select timestamp,weight from '" + group + "' where 'timestamp' >= '"
     query = query + str(timestamp_days_ago(days)) + "' and name = '" + tap + "'" 
     
     logger.info('DZ: query:' + query)
