@@ -15,6 +15,7 @@ def timestamp_days_ago(days):
 def lambda_handler(event, context):
     data = []
     days = 1;
+    age = -1;
     nexttoken = ""
     
     logger.debug('got event{}'.format(event))
@@ -38,9 +39,18 @@ def lambda_handler(event, context):
         if 'days' in event['queryStringParameters']:
             days = event['queryStringParameters']['days']
 
-    query = "select timestamp,weight from '" + group + "' where 'timestamp' >= '"
-    query = query + str(timestamp_days_ago(days)) + "' and name = '" + tap + "'" 
-    
+    query = "select timestamp,weight from `" + group + "` where `timestamp` >= '"
+    query = query + str(timestamp_days_ago(days)) + "' and `name` = '" + tap + "'"
+
+    # Get age parameter from query string
+    if 'age' in event['queryStringParameters']:
+        age = event['queryStringParameters']['age']
+        if (int(age) > 1):
+            query = query + " and `age` = '" + age + "'"
+        else:
+            query = query + " and `age` is null"
+
+    query = query + " order by timestamp ASC"
     logger.info('DZ: query:' + query)
 
     i = 0
@@ -71,4 +81,3 @@ def lambda_handler(event, context):
     response["isBase64Encoded"] = False
 
     return (response)
-
