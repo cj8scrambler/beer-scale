@@ -61,7 +61,8 @@ function getKegState(sel) {
       var options = {
         chart: {
           renderTo: 'container',
-          type: 'spline'
+          type: 'spline',
+          zoomType: 'x',
         },
         title: {
           text: 'Tap History'
@@ -90,6 +91,11 @@ function getKegState(sel) {
         options.series[0].data = data;
         options.series[0].name = tapname;
         console.log("DZ: generating chart...");
+        Highcharts.setOptions({
+          global: {
+            useUTC: false,
+          }
+        });
         var chart = new Highcharts.Chart(options);
       });
     })
