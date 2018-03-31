@@ -1,4 +1,5 @@
 #!/bin/bash
 
-aws s3 cp index.html s3://beer-status
+aws s3 cp table.html s3://beer-status
 aws s3 cp age.html  s3://beer-status
+aws s3 cp index.html s3://beer-status
