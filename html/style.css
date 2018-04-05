@@ -1,197 +1,91 @@
 body {
   background: #333;
+  font-family: 'Quicksand', sans-serif;
 }
 
-.card {
-  border: none;
-  
+.beer-header {
+  text-align: center;
 }
 
-.card-title.pricing-card-title {
-  font-size: 1rem;
+.beer-lead {
+  margin: 0;
+  color: #fff;
+  font-weight: bold;
+  font-size: 65px;
+  text-shadow: 4px 4px 4px #111;
 }
-.card-body {
+
+.beer-subhead {
+  margin: 0;
+  font-size: 1.4rem;
+  color: #999;
+}
+
+.containers {
+  width: 1000px;
+  margin:0 auto;
+  margin-top: 20px;
+}
+
+.beer-container {
+  text-align: center;
+  display: inline-block;
+  position: relative;
+  margin: 1%;
+  float: left;
+  width: 23%;
+  max-width: 200px;
+
   padding-top: 25px;
   background: #222;
   color: #fff;
   border-radius: 2px;
   box-shadow: 0 0px 12px #222;
+
 }
 
-h1 {
- text-align: center;
- margin: 0;
- color: #fff;
- font-weight: bold;
- font-size: 65px;
+.beer-name {
+  font-size: 1.4rem;
+  margin-bottom: 10px;
+  color: #fff;
+  font-weight: bold;
 }
 
-.lead {
-color: #999;}
-
-h2 {
- text-align: center;
- font-size: 1em;
-  opacity: 0.5;
-  margin-top: 15px;
-}
-.beer-container {
-  margin-top: 60px;
-  position: relative;
-  box-sizing: none;
+.beer-brewer {
+  font-size: 1rem;
+  margin: 1px;
+  color: #fff;
+  font-weight: bold;
 }
 
-ul.list-unstyled li {
-  font-size: 0.85em;
+.beer-location {
+  font-size: 1rem;
+  margin: 1px;
   color: #999;
 }
 
-ul.list-unstyled .city {
+.beer-style {
   font-size: 1em;
-  color: #fff;
+  color: #999;
 }
 
-*, *::before, *::after {
-     box-sizing: unset; 
-}
-#the-bar {
- max-width: 900px;
- margin: 120px auto;
+.beer-glass {
+  display: block;
+  margin:20px auto;
 }
 
-.type {
- display: inline-block;
- margin: 0 1.5%;
- border-sizing: content-box;
-}
-
-/*glass shadow*/
-.type:after {
- content: '';
- position: absolute;
- z-index: -99;
- left: 64px;
- bottom: -22px;
- display: block;
- width: 140px;
- height: 13px;
- border-radius: 50%;
- background: rgba(0, 0, 0, .17);
-}
-
-.beer {
- border-bottom: 170px solid yellow;
- border-left: 14px solid transparent;
- border-right: 14px solid transparent;
- height: 0;
- width: 88px;
- border-radius: 30px 30px 0px 0px;
- transform: rotate(180deg);
- margin: 15px auto;
-}
-
-/*the glass*/
-.beer:after {
- content: '';
- position: absolute;
- right: -22px;
- top: -16px;
- border-bottom: 230px solid rgba(255, 255, 255, .22);
- border-left: 16px solid transparent;
- border-right: 16px solid transparent;
- height: 0;
- width: 100px;
- border-radius: 30px 30px 3px 3px;
-}
-
-/*the glass shine 1*/
-.beer:before {
- content: '';
- position: absolute;
- top: -11px;
- left: -17px;
- border-bottom: 220px solid rgba(255, 255, 255, .15);
- border-left: 16px solid transparent;
- border-right: 4px solid transparent;
- height: 0;
- width: 44px;
- border-radius: 30px 8px 3px 3px;
-}
-
-.foam {
- position: absolute;
- top: -15px;
- left: 51px;
- border-bottom: 30px solid rgba(255, 255, 255, .45);
- border-left: 2px solid transparent;
- border-right: 2px solid transparent;
- height: 0;
- width: 116px;
- border-radius: 1px;
- transform: rotate(180deg);
- box-shadow: 0 -4px 52px rgba(0, 0, 0, .25);
- margin: 0 auto;
-}
-
-
-/*the glass shine 2*/
-.foam:before {
- content: '';
- position: absolute;
- top: -162px;
- right: 12px;
- border-bottom: 180px solid rgba(255, 255, 255, .2);
- border-left: 1px solid transparent;
- border-right: 9px solid transparent;
- height: 0;
- width: 3px;
- border-radius: 1px 1px 12px 5px;
-}
-
-#pilsner {
- color: #d2c200;
-}
-
-#pilsner .beer {
- border-bottom-color: #d2c200;
-}
-
-#ipa {
- color: #b55c00;
-}
-
-#ipa .beer {
- border-bottom-color: #b55c00;
-}
-
-#ipa .foam {
- border-bottom-color: rgba(255, 235, 150, 0.35);
-}
-
-#stout {
- color: #0c0700;
-}
-
-#stout .beer {
- border-bottom-color: #0c0700;
-}
-
-#stout .foam {
- border-bottom-color: rgba(255, 195, 90, 0.35);
-}
-
-#cider .beer {
- border-bottom-color: #e89f19;
-}
-
-#cider .foam {
- border-bottom-color: #c8c8c8;
+.beer-stats {
+  font-size: 0.70em;
+  padding-left: 10px;
+  padding-right: 10px;
+  color: #999;
+  display: flex;
+  justify-content: space-between;
 }
 
 footer {
  bottom: 0;
  margin: 60px 0 20px;
- text-align: center;
  font-size: 12px;
  color: #fff;
  font-family: 'Quicksand', sans-serif;

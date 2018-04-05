@@ -1,97 +1,317 @@
+<!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
-    <link rel="stylesheet" href="style.css">
-    <title>ORD Beer Status</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css?family=Quicksand" rel="stylesheet">
 </head>
 <body>
-    <div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
-      <h1 class="display-4">Beer on Tap</h1>
-      <p class="lead">at the Chicago Office</p>
-    </div>
 
-    <div class="container">
-      <div class="card-deck mb-3 text-center">
-        <div class="card mb-4 box-shadow">
-          
-          <div class="card-body">
-            <h1 class="card-title pricing-card-title">Beer Name <br><small class="text-muted">Brand Name</small></h1>
-            
-            <ul class="list-unstyled mt-3 mb-4">
-             
-              <li class="city">Chicago, IL</li>
-              <li>4% Alc. by Vol.</li>
-              <li>1000 ibu</li>
-            </ul>
-            <div class="beer-container">
-              <div id="cider" class="type">
-                <section class="beer"></section>
-                <section class="foam"></section>
-              </div>
-              <h2>Cider</h2>
-            </div>
-          </div>
-        </div>
-        <div class="card mb-4 box-shadow">
-          
-          <div class="card-body">
-            <h1 class="card-title pricing-card-title">Beer Name <br><small class="text-muted">Brand Name</small></h1>
-            
-            <ul class="list-unstyled mt-3 mb-4">
-             
-              <li class="city">Chicago, IL</li>
-              <li>4% Alc. by Vol.</li>
-              <li>1000 ibu</li>
-            </ul>
-            <div class="beer-container">
-              <div id="pilsner" class="type">
-                <section class="beer"></section>
-                <section class="foam"></section>
-              </div>
-              <h2>Pilsner</h2>
-            </div>
-          </div>
-        </div>
-        <div class="card mb-4 box-shadow">
-          
-          <div class="card-body">
-            <h1 class="card-title pricing-card-title">Beer Name <br><small class="text-muted">Brand Name</small></h1>
-            
-            <ul class="list-unstyled mt-3 mb-4">
-             
-              <li class="city">Chicago, IL</li>
-              <li>4% Alc. by Vol.</li>
-              <li>1000 ibu</li>
-            </ul>
-            <div class="beer-container">
-              <div id="ipa" class="type">
-                <section class="beer"></section>
-                <section class="foam"></section>
-              </div>
-              <h2>I.P.A.</h2>
-            </div>
-          </div>
-        </div>
-        <div class="card mb-4 box-shadow">
-          
-          <div class="card-body">
-            <h1 class="card-title pricing-card-title">Beer Name <br><small class="text-muted">Brand Name</small></h1>
-            
-            <ul class="list-unstyled mt-3 mb-4">
-              <li class="city">Chicago, IL</li>
-              <li>4% Alc. by Vol.</li>
-              <li>1000 ibu</li>
-            </ul>
-            <div class="beer-container">
-              <div id="stout" class="type">
-                <section class="beer"></section>
-                <section class="foam"></section>
-              </div>
-              <h2>Stout</h2>
-            </div>
-          </div>
-        </div>
-      </div>
+<div class="beer-header">
+  <p class="beer-lead">Beer on Tap</p>
+  <p class="beer-subhead">at the Chicago Office</p>
+</div>
+
+<div class="containers">
+  <div class="beer-container" id="LeftFridgeLeftTap">
+    <p class="beer-name" id="LeftFridgeLeftTap_beername"></p>
+    <p class="beer-brewer" id="LeftFridgeLeftTap_brewer"></p>
+    <p class="beer-location" id="LeftFridgeLeftTap_brewerlocation"></p>
+    <canvas class="beer-glass" id="LeftFridgeLeftTap_glass" width="156" height="250"></canvas>
+    <p class="beer-style" id="LeftFridgeLeftTap_style"></p>
+    <div class="beer-stats">
+      <p class="beer-ibu" id="LeftFridgeLeftTap_ibu"></p>
+      <p class="beer-abv" id="LeftFridgeLeftTap_abv"></p>
+      <p class="beer-color" id="LeftFridgeLeftTap_color"></p>
     </div>
+  </div>
+
+  <div class="beer-container" id="LeftFridgeRightTap">
+    <p class="beer-name" id="LeftFridgeRightTap_beername"></p>
+    <p class="beer-brewer" id="LeftFridgeRightTap_brewer"></p>
+    <p class="beer-location" id="LeftFridgeRightTap_brewerlocation"></p>
+    <canvas class="beer-glass" id="LeftFridgeRightTap_glass" width="156" height="250"></canvas>
+    <p class="beer-style" id="LeftFridgeRightTap_style"></p>
+    <div class="beer-stats">
+      <p class="beer-ibu" id="LeftFridgeRightTap_ibu"></p>
+      <p class="beer-abv" id="LeftFridgeRightTap_abv"></p>
+      <p class="beer-color" id="LeftFridgeRightTap_color"></p>
+    </div>
+  </div>
+
+  <div class="beer-container" id="RightFridgeLeftTap">
+    <p class="beer-name" id="RightFridgeLeftTap_beername"></p>
+    <p class="beer-brewer" id="RightFridgeLeftTap_brewer"></p>
+    <p class="beer-location" id="RightFridgeLeftTap_brewerlocation"></p>
+    <canvas class="beer-glass" id="RightFridgeLeftTap_glass" width="156" height="250"></canvas>
+    <p class="beer-style" id="RightFridgeLeftTap_style"></p>
+    <div class="beer-stats">
+      <p class="beer-ibu" id="RightFridgeLeftTap_ibu"></p>
+      <p class="beer-abv" id="RightFridgeLeftTap_abv"></p>
+      <p class="beer-color" id="RightFridgeLeftTap_color"></p>
+    </div>
+  </div>
+
+  <div class="beer-container" id="RightFridgeRightTap">
+    <p class="beer-name" id="RightFridgeRightTap_beername"></p>
+    <p class="beer-brewer" id="RightFridgeRightTap_brewer"></p>
+    <p class="beer-location" id="RightFridgeRightTap_brewerlocation"></p>
+    <canvas class="beer-glass" id="RightFridgeRightTap_glass" width="156" height="250"></canvas>
+    <p class="beer-style" id="RightFridgeRightTap_style"></p>
+    <div class="beer-stats">
+      <p class="beer-ibu" id="RightFridgeRightTap_ibu"></p>
+      <p class="beer-abv" id="RightFridgeRightTap_abv"></p>
+      <p class="beer-color" id="RightFridgeRightTap_color"></p>
+    </div>
+  </div>
+</div>
+
+<script>
+
+/**
+ * Draws a rounded & tapered rectangle.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {Number} x The top left x coordinate
+ * @param {Number} y The top left y coordinate
+ * @param {Number} width The width of the rectangle
+ * @param {Number} height The height of the rectangle
+ * @param {Number} [taper = 0] Taper on Y; it can also be an object to specify
+                   different taper on bottom right & left
+ * @param {Number} [taper.br = 0] Taper on Y; it can also be an object to specify
+ * @param {Number} [taper.bl = 0] Taper on Y; it can also be an object to specify
+ * @param {Number} [radius = 5] The corner radius; It can also be an object 
+ *                 to specify different radii for corners
+ * @param {Number} [radius.tl = 0] Top left
+ * @param {Number} [radius.tr = 0] Top right
+ * @param {Number} [radius.br = 0] Bottom right
+ * @param {Number} [radius.bl = 0] Bottom left
+ * @param {Boolean} [fill = false] Whether to fill the rectangle.
+ * @param {Boolean} [stroke = true] Whether to stroke the rectangle.
+ */
+function roundTaperRect(ctx, x, y, width, height, taper, radius, fill, stroke) {
+  if (typeof stroke == 'undefined') {
+    stroke = true;
+  }
+  if (typeof radius === 'undefined') {
+    radius = 5;
+  }
+  if (typeof radius === 'number') {
+    radius = {tl: radius, tr: radius, br: radius, bl: radius};
+  } else {
+    var defaultRadius = {tl: 0, tr: 0, br: 0, bl: 0};
+    for (var side in defaultRadius) {
+      radius[side] = radius[side] || defaultRadius[side];
+    }
+  }
+  if (typeof taper === 'undefined') {
+    taper = 0;
+  }
+  if (typeof taper === 'number') {
+    taper = {br: taper, bl: taper};
+  } else {
+    var defaultTaper = {tl: 0, tr: 0, br: 0, bl: 0};
+    for (var side in defaultTaper) {
+      taper[side] = taper[side] || defaultTaper[side];
+    }
+  }
+  ctx.beginPath();
+  ctx.moveTo(x + radius.tl, y);
+  ctx.lineTo(x + width - radius.tr, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius.tr);
+  ctx.lineTo(x + width - taper.br, y + height - radius.br);
+  ctx.quadraticCurveTo(x + width - taper.br, y + height, x + width - taper.br - radius.br, y + height);
+  ctx.lineTo(x + taper.bl + radius.bl, y + height);
+  ctx.quadraticCurveTo(x + taper.bl, y + height, x + taper.bl, y + height - radius.bl);
+  ctx.lineTo(x, y + radius.tl);
+  ctx.quadraticCurveTo(x, y, x + radius.tl, y);
+  ctx.closePath();
+  if (fill) {
+    ctx.fill();
+  }
+  if (stroke) {
+    ctx.stroke();
+  }
+}
+
+function generateGlass(canvas, x, y, percent=100, srm=20, drawfoam=true) {
+
+  w = 140       // glass width
+  h = 240       // glass height
+  th = 10       // glass thickness
+  ta = 18       // taper
+  foam = 45     // foam height
+  buffer = h * 0.05  // vertical buffer
+
+  glass_color = "rgba(255, 255, 255, 0.17)";
+  foam_color =  "rgba(255, 255, 220, 0.6)";
+  shine_color =  "rgba(255, 255, 255, .18)";
+
+  glassradius = {};
+  glassradius.tl = 2
+  glassradius.tr = 2
+  glassradius.bl = 16
+  glassradius.br = 16
+
+  beerradius = {};
+  beerradius.tl = 0
+  beerradius.tr = 0
+  beerradius.bl = 30
+  beerradius.br = 30
+
+  /* SRM -> RGB */
+  color = {}
+  color[1] = "#FFE699"
+  color[2] = "#FFD878"
+  color[3] = "#FFCA5A"
+  color[4] = "#FFBF42"
+  color[5] = "#FBB123"
+  color[6] = "#F8A600"
+  color[7] = "#F39C00"
+  color[8] = "#EA8F00"
+  color[9] = "#E58500"
+  color[10] = "#DE7C00"
+  color[11] = "#C17A37"
+  color[12] = "#BF7138"
+  color[13] = "#BC6733"
+  color[14] = "#B26033"
+  color[15] = "#A85839"
+  color[16] = "#985336"
+  color[17] = "#8D4C32"
+  color[18] = "#7C452D"
+  color[19] = "#6B3A1E"
+  color[20] = "#5D341A"
+  color[21] = "#4E2A0C"
+  color[22] = "#402C27"
+  color[23] = "#361F1B"
+  color[24] = "#261716"
+  color[25] = "#231716"
+  color[26] = "#19100F"
+  color[27] = "#16100F"
+  color[28] = "#120D0C"
+  color[29] = "#100B0A"
+  color[30] = "#050B0A"
+  color[31] = "#000000"
+
+  if (percent < 15)
+    percent = 15
+  if (percent > 100)
+    percent = 100
+
+  if (srm < 1)
+    srm = 1
+  if (srm > 31)
+    srm = 31
+
+  if (drawfoam != true)
+    foam_color = color[srm]
+
+  // Glass
+  canvas.beginPath();
+  roundTaperRect(canvas, x, y - buffer/2, w, h+buffer, ta, glassradius, false, false);
+  canvas.fillStyle = glass_color;
+  canvas.fill();
+
+  // Beer
+  beer_taper = ta * (percent / 100.0)
+  beer_x = x + th + (ta - beer_taper)
+  beer_y = y + (1 - (percent / 100.0)) * h + th
+  beer_w = w - 2 * (ta - beer_taper) - 2 * th;
+  beer_h = h * (percent / 100.0) - 2*th;
+  canvas.beginPath();
+  roundTaperRect(canvas, beer_x, beer_y, beer_w, beer_h, beer_taper, beerradius, false, false);
+  canvas.fillStyle = color[srm];
+  canvas.fill();
+
+  // Foam
+  foam_height = (percent / 100.0) * foam
+  foam_x = beer_x
+  foam_y = beer_y
+  foam_w = beer_w
+  foam_h = foam * (percent / 100.0);
+  foam_ratio = (foam_h) / (beer_h)
+  foam_taper = ta * foam_ratio;
+  canvas.beginPath();
+  roundTaperRect(canvas, foam_x, foam_y, foam_w, foam_h, foam_taper, 0, false, false);
+  canvas.fillStyle = foam_color;
+  canvas.fill();
+
+  // Shine right
+  shinerradius = {};
+  shinerradius.tl = 0.5 * glassradius.tl
+  shinerradius.tr = 0.5 * glassradius.tr
+  shinerradius.bl = 0.5 * glassradius.bl
+  shinerradius.br = glassradius.br
+  shinertaper = {};
+  shinertaper.bl = 0
+  shinertaper.br = ta
+  canvas.beginPath();
+  roundTaperRect(canvas, x+w/2, y, (w - th)/2, h, shinertaper, shinerradius, false, false);
+  canvas.fillStyle = shine_color;
+  canvas.fill();
+
+  // Shine left
+  shine_x = x + 0.15 * w   /* start 15% right */
+  shine_y = y + 0.09 * h   /* start 9% down */
+  shine_w = w * 0.1        /* 10% wide */
+  shine_h = h * 0.85       /* 85% high */
+  shinelradius = {};
+  shinelradius.tl = 5*glassradius.tl
+  shinelradius.tr = 2*glassradius.tr
+  shinelradius.bl = 0
+  shinelradius.br = 0
+  shineltaper = {};
+  shineltaper.bl = 0.8*ta
+  shineltaper.br = 0
+  canvas.beginPath();
+  roundTaperRect(canvas, shine_x, shine_y, shine_w, shine_h, shineltaper, shinelradius, false, false);
+  canvas.fillStyle = shine_color;
+  canvas.fill();
+}
+
+
+var apiUrl = "https://b67qghztgl.execute-api.us-west-2.amazonaws.com/dev/";
+var group = "FultonKitchen"
+var xmlhttp, myObj, x, txt = "";
+
+fetch(apiUrl + group)
+  .then(function(response){
+      return response.json();
+  })
+  .then(function(json){
+    for (x in json.results) {
+      var drawfoam = true;
+      var tap = json.results[x];
+      var tapDiv = document.getElementById(tap['tap']);
+      if (tapDiv != null) {
+        var lastUpdate = new Date(tap['timestamp']*1000);
+        document.getElementById(tap['tap'] + '_beername').innerHTML =  tap['beername'];
+        document.getElementById(tap['tap'] + '_brewer').innerHTML =  tap['brewer'];
+        document.getElementById(tap['tap'] + '_brewerlocation').innerHTML =  tap['brewerlocation'];
+        document.getElementById(tap['tap'] + '_abv').innerHTML =  tap['abv'] + "% ABV";
+        if ('ibu' in tap) {
+          document.getElementById(tap['tap'] + '_ibu').innerHTML =  tap['ibu'] + " IBU";
+        }
+        document.getElementById(tap['tap'] + '_color').innerHTML =  tap['color'] + " SRM";
+        document.getElementById(tap['tap'] + '_style').innerHTML =  tap['style'];
+        if (tap['style'] == "Coffee")
+          drawfoam = false;
+        var glass = document.getElementById(tap['tap'] + '_glass');
+        var glass_ctx = glass.getContext("2d");
+        generateGlass(glass_ctx, 10,  10,  tap['level'],  tap['color'], drawfoam);
+      }
+      else { console.log("Could not find element: ", tap['tap']);}
+    }
+  });
+
+//generates random filled glasses of all color shades
+//var c = document.getElementById("randglasses");
+//var ctx = c.getContext("2d");
+
+//srm = 0
+//for (var y = 20; y < 1800; y = y + 400) {
+//  for (var x = 10; x < 1100; x = x + 200) { 
+//    generateGlass(ctx, x,  y,  Math.random()*100,  srm++);
+//  }
+//}
+</script>
 </body>
 </html>
