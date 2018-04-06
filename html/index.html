@@ -65,6 +65,8 @@
   </div>
 </div>
 
+<!--canvas id="randglasses" width="1400" height="2000"></canvas-->
+
 <script>
 
 /**
@@ -132,7 +134,9 @@ function roundTaperRect(ctx, x, y, width, height, taper, radius, fill, stroke) {
   }
 }
 
-function generateGlass(canvas, x, y, percent=100, srm=20, drawfoam=true) {
+function generateGlass(canvas, x, y, percent=100, srm=20, mode="normal") {
+
+  //mode : [normal | nofoam | blank]]
 
   w = 140       // glass width
   h = 240       // glass height
@@ -141,9 +145,11 @@ function generateGlass(canvas, x, y, percent=100, srm=20, drawfoam=true) {
   foam = 45     // foam height
   buffer = h * 0.05  // vertical buffer
 
+
   glass_color = "rgba(255, 255, 255, 0.17)";
   foam_color =  "rgba(255, 255, 220, 0.6)";
   shine_color =  "rgba(255, 255, 255, .18)";
+  text_color =  "rgba(255, 255, 255, 0.8)";
 
   glassradius = {};
   glassradius.tl = 2
@@ -191,18 +197,25 @@ function generateGlass(canvas, x, y, percent=100, srm=20, drawfoam=true) {
   color[30] = "#050B0A"
   color[31] = "#000000"
 
-  if (percent < 15)
-    percent = 15
+  var draw_percent = percent
+  if ((percent > 0) && (percent < 20))
+    draw_percent = 20
   if (percent > 100)
-    percent = 100
+    draw_percent = 100
 
   if (srm < 1)
     srm = 1
   if (srm > 31)
     srm = 31
 
-  if (drawfoam != true)
+  if ((srm <= 4) && (draw_percent > 0))
+    text_color =  "rgba(20, 20, 20, 0.7)";
+
+  if (mode == "nofoam")
     foam_color = color[srm]
+
+  /* Might be redrawing, so clear it first */
+  canvas.clearRect(x, y-buffer/2, w, h+buffer/2);
 
   // Glass
   canvas.beginPath();
@@ -210,29 +223,31 @@ function generateGlass(canvas, x, y, percent=100, srm=20, drawfoam=true) {
   canvas.fillStyle = glass_color;
   canvas.fill();
 
-  // Beer
-  beer_taper = ta * (percent / 100.0)
-  beer_x = x + th + (ta - beer_taper)
-  beer_y = y + (1 - (percent / 100.0)) * h + th
-  beer_w = w - 2 * (ta - beer_taper) - 2 * th;
-  beer_h = h * (percent / 100.0) - 2*th;
-  canvas.beginPath();
-  roundTaperRect(canvas, beer_x, beer_y, beer_w, beer_h, beer_taper, beerradius, false, false);
-  canvas.fillStyle = color[srm];
-  canvas.fill();
+  if ((mode != "blank") && (draw_percent > 0)) {
+   // Beer
+    beer_taper = ta * (draw_percent / 100.0)
+    beer_x = x + th + (ta - beer_taper)
+    beer_y = y + (1 - (draw_percent / 100.0)) * h + th
+    beer_w = w - 2 * (ta - beer_taper) - 2 * th;
+    beer_h = h * (draw_percent / 100.0) - 2*th;
+    canvas.beginPath();
+    roundTaperRect(canvas, beer_x, beer_y, beer_w, beer_h, beer_taper, beerradius, false, false);
+    canvas.fillStyle = color[srm];
+    canvas.fill();
 
-  // Foam
-  foam_height = (percent / 100.0) * foam
-  foam_x = beer_x
-  foam_y = beer_y
-  foam_w = beer_w
-  foam_h = foam * (percent / 100.0);
-  foam_ratio = (foam_h) / (beer_h)
-  foam_taper = ta * foam_ratio;
-  canvas.beginPath();
-  roundTaperRect(canvas, foam_x, foam_y, foam_w, foam_h, foam_taper, 0, false, false);
-  canvas.fillStyle = foam_color;
-  canvas.fill();
+    // Foam
+    foam_height = (draw_percent / 100.0) * foam
+    foam_x = beer_x
+    foam_y = beer_y
+    foam_w = beer_w
+    foam_h = foam * (draw_percent / 100.0);
+    foam_ratio = (foam_h) / (beer_h)
+    foam_taper = ta * foam_ratio;
+    canvas.beginPath();
+    roundTaperRect(canvas, foam_x, foam_y, foam_w, foam_h, foam_taper, 0, false, false);
+    canvas.fillStyle = foam_color;
+    canvas.fill();
+  }
 
   // Shine right
   shinerradius = {};
@@ -265,6 +280,14 @@ function generateGlass(canvas, x, y, percent=100, srm=20, drawfoam=true) {
   roundTaperRect(canvas, shine_x, shine_y, shine_w, shine_h, shineltaper, shinelradius, false, false);
   canvas.fillStyle = shine_color;
   canvas.fill();
+
+  // Percentage
+  if (mode != "blank") {
+    canvas.font="32px Quicksand";
+    canvas.textAlign="center"; 
+    canvas.fillStyle=text_color;
+    canvas.fillText(Math.round(percent) + "%",x+w/2,y+.85*h); 
+  }
 }
 
 
@@ -272,13 +295,24 @@ var apiUrl = "https://b67qghztgl.execute-api.us-west-2.amazonaws.com/dev/";
 var group = "FultonKitchen"
 var xmlhttp, myObj, x, txt = "";
 
+// Draw empty glasses so there's somthing to look at while the page loads
+var elements = ["LeftFridgeLeftTap_glass", "LeftFridgeRightTap_glass",
+                "RightFridgeLeftTap_glass", "RightFridgeRightTap_glass"]
+for (var i in elements) {
+  var glass = document.getElementById(elements[i]);
+  if (glass != undefined) {
+    var glass_ctx = glass.getContext("2d");
+    generateGlass(glass_ctx, 10,  10,  0,  0, "blank");
+  }
+}
+
 fetch(apiUrl + group)
   .then(function(response){
       return response.json();
   })
   .then(function(json){
     for (x in json.results) {
-      var drawfoam = true;
+      var mode = "normal";
       var tap = json.results[x];
       var tapDiv = document.getElementById(tap['tap']);
       if (tapDiv != null) {
@@ -293,25 +327,26 @@ fetch(apiUrl + group)
         document.getElementById(tap['tap'] + '_color').innerHTML =  tap['color'] + " SRM";
         document.getElementById(tap['tap'] + '_style').innerHTML =  tap['style'];
         if (tap['style'] == "Coffee")
-          drawfoam = false;
+          mode = "nofoam";
         var glass = document.getElementById(tap['tap'] + '_glass');
         var glass_ctx = glass.getContext("2d");
-        generateGlass(glass_ctx, 10,  10,  tap['level'],  tap['color'], drawfoam);
+        generateGlass(glass_ctx, 10,  10,  tap['level'],  tap['color'], mode);
       }
       else { console.log("Could not find element: ", tap['tap']);}
     }
   });
 
-//generates random filled glasses of all color shades
-//var c = document.getElementById("randglasses");
-//var ctx = c.getContext("2d");
-
-//srm = 0
-//for (var y = 20; y < 1800; y = y + 400) {
-//  for (var x = 10; x < 1100; x = x + 200) { 
-//    generateGlass(ctx, x,  y,  Math.random()*100,  srm++);
-//  }
-//}
+//generates random filled glasses of all color shades for testing
+var c = document.getElementById("randglasses");
+if (c != null) {
+  var rand_ctx = c.getContext("2d");
+  var srm = 0
+  for (var y = 20; y < 1800; y = y + 400) {
+    for (var x = 10; x < 1100; x = x + 200) { 
+     generateGlass(rand_ctx, x,  y,  Math.random()*60,  srm++, "normal");
+    }
+  }
+}
 </script>
 </body>
 </html>
