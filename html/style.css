@@ -83,6 +83,11 @@ body {
   justify-content: space-between;
 }
 
+/*
+   For some reason the rest of these elements are being ignored
+   even though they work fine locally
+ */
+
 /* The Modal (background) */
 .modal {
     display: none; /* Hidden by default */
