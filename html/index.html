@@ -3,6 +3,10 @@
 <head>
   <link rel="stylesheet" href="style.css">
   <link href="https://fonts.googleapis.com/css?family=Quicksand" rel="stylesheet">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <script src="https://code.highcharts.com/modules/series-label.js"></script>
+  <script src="https://code.highcharts.com/modules/exporting.js"></script>
 </head>
 <body>
 
@@ -65,9 +69,99 @@
   </div>
 </div>
 
+<div id="history_modal" class="modal">
+  <div class="modal-content">
+    <span class="close">&times;</span>
+    <!--div id="history_graph" style="min-width: 310px; height: 400px; margin: 0 auto"></div-->
+    <div id="history_graph" style="min-width: 310px; margin: 0 auto"></div>
+  </div>
+</div>
+
 <!--canvas id="randglasses" width="1400" height="2000"></canvas-->
 
 <script>
+
+function generateGraph(tap, element) {
+
+      var options = {
+        chart: {
+          renderTo: element,
+          type: 'spline',
+          zoomType: 'x',
+        },
+        title: {
+          text: tap + ' History',
+          style: {
+            color: "#eeeeee",  /* can't get style sheets to work for this, so setting here */
+          },
+        },
+        legend: {
+          enabled: false,
+        },
+        xAxis: {
+          type: 'datetime',
+          labels: {
+            style: {
+              color: "#eee",
+            },
+          }
+        },
+        yAxis: {
+          title: {
+            text: 'Weight (Kg)',
+            style: {
+              color: "#eee",
+            },
+          },
+          labels: {
+            formatter: function() { return (this.value/1000.0); },
+            style: {
+              color: "#eee",
+            },
+          },
+          plotLines: [{
+            value: 6530,
+            color: '#555',
+            width: 5,
+            label: {
+              text: 'Empty'
+            },
+          },{
+            value: 26530,
+            color: '#555',
+            width: 5,
+            label: {
+              text: 'Full'
+            },
+          },
+          ],
+          plotBands: [{
+            color: '#666',
+            from: 6530, /* empty weight */
+            to:  26530, /* full weight */
+          }],
+        },
+        tooltip: {
+          headerFormat: '<b>{series.name}</b><br>',
+          pointFormat: '{point.x:%e. %b}: {point.y:.2f} m'
+        },
+        colors: ['rgba(255,200,112,0.8)'],
+        series: [{}]
+      };
+
+      var url =  apiUrl + group + "/" + tap + "/history/?days=30" ;
+      jQuery.getJSON(url,  function(data) {
+        options.series[0].data = data;
+        options.series[0].name = tap;
+        options.series[0].label = {enabled:false};
+        Highcharts.setOptions({
+          global: {
+            useUTC: false,
+          }
+        });
+        var chart = new Highcharts.Chart(options);
+      });
+};
 
 /**
  * Draws a rounded & tapered rectangle.
@@ -335,6 +429,49 @@ fetch(apiUrl + group)
       else { console.log("Could not find element: ", tap['tap']);}
     }
   });
+
+  // Setup the history graph modal
+  var modal = document.getElementById('history_modal');
+  var span = document.getElementsByClassName("close")[0];
+
+  // When the user clicks on <span> (x), close the modal
+  span.onclick = function() {
+      modal.style.display = "none";
+      $('#history_graph').empty();
+  }
+
+  // When the user clicks anywhere outside of the modal, close it
+  window.onclick = function(event) {
+      if (event.target == modal) {
+          modal.style.display = "none";
+          $('#history_graph').empty();
+      }
+  }
+
+  var lflt = document.getElementById("LeftFridgeLeftTap");
+  lflt.onclick = function() {
+      var graph = document.getElementById("history_graph");
+      generateGraph("LeftFridgeLeftTap", graph)
+      modal.style.display = "block";
+  }
+  var lflt = document.getElementById("LeftFridgeRightTap");
+  lflt.onclick = function() {
+      var graph = document.getElementById("history_graph");
+      generateGraph("LeftFridgeRightTap", graph)
+      modal.style.display = "block";
+  }
+  var lflt = document.getElementById("RightFridgeLeftTap");
+  lflt.onclick = function() {
+      var graph = document.getElementById("history_graph");
+      generateGraph("RightFridgeLeftTap", graph)
+      modal.style.display = "block";
+  }
+  var lflt = document.getElementById("RightFridgeRightTap");
+  lflt.onclick = function() {
+      var graph = document.getElementById("history_graph");
+      generateGraph("RightFridgeRightTap", graph)
+      modal.style.display = "block";
+  }
 
 //generates random filled glasses of all color shades for testing
 var c = document.getElementById("randglasses");
