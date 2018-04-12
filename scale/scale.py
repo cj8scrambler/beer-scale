@@ -25,6 +25,13 @@ MAX_SAMPLES_PER_MQTT = 180  # Max samples between MQTT updates (happens with sta
 MEDIAN_FILTER_SIZE = 5
 MQTT_ALLOWED_VARIANCE = 5   # Variance (in grams) which triggers a new MQTT update
 
+# Globals
+# Neet to allocate these dynamicaly based on number of scales
+data = [[], []]
+last_mqtt_report = [0,0]
+updates = 0
+scaleDevices = []
+
 def cleanAndExit():
     GPIO.cleanup()
     myMQTTClient.unsubscribe("device/+/tare")
@@ -58,17 +65,173 @@ def handleIncoming(client, userdata, message):
         print("Received invalid topic name: ")
         print(message.topic)
     
+def doCalibration(scaleName, calWeight):
+    CALIBRATION_SAMPLES = 10
+    CALIBRATION_STDEV = 0.0001
+    CALIBRATION_SAMPLE_PERIOD = 1
+    CALIBRATION_TEST_THRESHOLD = 0.02 #% error allowed (0-1)
+    i=0
+    scaleConfig=None;
+    for config in settings['hx711']:
+        if (config['name'] == scaleName):
+           scaleConfig = config;
+           break;
+        i=i+1;
+    if (scaleConfig is None):
+        print("Error: Could not find config for scale '" + scaleName + "'");
+        raise ImportError
+    
+    print("Running calibration for scale: " + scaleName);
+    print("-----------------------------------------------------");
+    print("Scale should be empty");
 
-# Neet to allocate these dynamicaly based on number of scales
-data = [[], []]
-last_mqtt_report = [0,0]
-updates = 0
-scaleDevices = []
+    # set reference to 1
+    scaleDevices[i].set_reference_unit(1);
+
+    sys.stdout.write("Measuring");
+    while (len(data[i]) < CALIBRATION_SAMPLES):
+        val = scaleDevices[i].get_weight(5)[0]
+        data[i].append(val)
+        sys.stdout.write('.')
+        scaleDevices[i].power_down()
+        scaleDevices[i].power_up()
+        time.sleep(CALIBRATION_SAMPLE_PERIOD)
+    while (statistics.stdev(data[i]) > CALIBRATION_STDEV): 
+        print ("  stddev: " + statistics.stdev(data[i]) + "  mean: " + statistics.mean(data[i]));
+        val = scaleDevices[i].get_weight(5)[0]
+        data[i].append(val)
+        data[i].pop(0)
+        sys.stdout.write('.')
+        scaleDevices[i].power_down()
+        scaleDevices[i].power_up()
+        time.sleep(CALIBRATION_SAMPLE_PERIOD)
+    empty_meas = statistics.mean(data[i]);
+
+    print("");
+    print("Place " + calWeight + " gram weight on scale");
+    while (statistics.stdev(data[i]) < 10 * CALIBRATION_STDEV):
+        val = scaleDevices[i].get_weight(5)[0]
+        data[i].append(val)
+        data[i].pop(0)
+        scaleDevices[i].power_down()
+        scaleDevices[i].power_up()
+
+    sys.stdout.write("Measuring");
+    while (statistics.stdev(data[i]) > CALIBRATION_STDEV): 
+        print ("  stddev: " + stdev(data[i]));
+        val = scaleDevices[i].get_weight(5)[0]
+        data[i].append(val)
+        data[i].pop(0)
+        sys.stdout.write('.')
+        scaleDevices[i].power_down()
+        scaleDevices[i].power_up()
+        time.sleep(CALIBRATION_SAMPLE_PERIOD)
+    cal_meas = statistics.mean(data[i]);
+    print("");
+
+    ref_unit = (cal_meas - empty_meas) / calWeight
+    printf("empty: " + empty_meas + "   cal: " + cal_meas + "   ref_unit: " + ref_unit);
+    scaleDevices[i].set_reference_unit(ref_unit);
+
+    print("Remove weight from scale to tare");
+    while (statistics.stdev(data[i]) < 10 * CALIBRATION_STDEV):
+        val = scaleDevices[i].get_weight(5)[0]
+        data[i].append(val)
+        data[i].pop(0)
+        scaleDevices[i].power_down()
+        scaleDevices[i].power_up()
+
+    sys.stdout.write("Waiting for stability")
+    while (statistics.stdev(data[i]) > CALIBRATION_STDEV): 
+        print ("  stddev: " + stdev(data[i]));
+        val = scaleDevices[i].get_weight(5)[0]
+        data[i].append(val)
+        data[i].pop(0)
+        sys.stdout.write('.')
+        scaleDevices[i].power_down()
+        scaleDevices[i].power_up()
+        time.sleep(CALIBRATION_SAMPLE_PERIOD)
+    scaleConfig['tare_offset'] = scaleDevices[i].tare();
+    print("");
+
+    print ("  tare: " + scaleConfig['tare_offset']);
+
+    print("Place " + calWeight + " gram weight on scale to verify");
+    while (statistics.stdev(data[i]) < 10 * CALIBRATION_STDEV):
+        val = scaleDevices[i].get_weight(5)[0]
+        data[i].append(val)
+        data[i].pop(0)
+        scaleDevices[i].power_down()
+        scaleDevices[i].power_up()
+
+    sys.stdout.write("Waiting for stability")
+    while (statistics.stdev(data[i]) > CALIBRATION_STDEV): 
+        print ("  stddev: " + stdev(data[i]));
+        val = scaleDevices[i].get_weight(5)[0]
+        data[i].append(val)
+        data[i].pop(0)
+        sys.stdout.write('.')
+        scaleDevices[i].power_down()
+        scaleDevices[i].power_up()
+        time.sleep(CALIBRATION_SAMPLE_PERIOD)
+    check_weight = statistics.mean(data[i]);
+    print("");
+
+    print ("Cailibration weight: " + calWeight);
+    print ("Measured weight: " + check_weight);
+    if (((calWeight-check_weight)/calWeight) > CALIBRATION_TEST_THRESHOLD):
+        print ("Failed calibration")
+    else:
+        print ("Passed calibration")
+        # Write JSON config file back now
+
+    return
 
 parser = argparse.ArgumentParser(description='Read HX711 scale data and report to AWS IOT')
 parser.add_argument('-a', '--awscerts', default='aws_certs', help='directory containing AWS certificates')
 parser.add_argument('-c', '--config', default='scaleconfig.json', help='configuration file')
+parser.add_argument('-w', '--weight', type=int, help='reference weight in grams for calibration mode (also need to specify scale name')
+parser.add_argument('-s', '--scale', help='Name of scale to calibrate')
 args = parser.parse_args()
+
+#Load config file for AWS and HX711 interface settings
+try:
+    print("Loading settings from: " + args.config)
+    settings = json.load(open(args.config))
+    if (('hx711' not in settings) or
+        ('endpoint' not in settings) or
+        ('group' not in settings) or
+        ('thing' not in settings)):
+        print("Error: Invalid config file")
+        raise ImportError
+except:
+    print("Error: Could not load JSON configuratin file: " + args.config)
+    sys.exit(-1)
+
+# Initialize Scales
+for config in settings['hx711']:
+    print("%s: Initializing %s (%d,%d) [%d/%d]" %
+          (datetime.datetime.now(), config['name'],
+           config['clk_gpio'], config['data_gpio'],
+           config['ref_unit'], config['tare_offset']))
+    hx = HX711(config['data_gpio'], config['clk_gpio'])
+    hx.set_reading_format("LSB", "MSB")
+    hx.set_reference_unit(config['ref_unit'])
+    hx.reset()
+    hx.set_tare(config['tare_offset'])
+    scaleDevices.append(hx)
+
+if (args.weight is not None):
+    if (args.scale is None):
+        print("Error: Must specify scale name (--scale) to calibrate");
+        raise ImportError
+    if ((not isinstance(args.weight, int)) or (args.weight < 1000)):
+        print("Error: Invalid calibration weight.  Must be >= 1000 (g) ")
+        print(isinstance(args.weight, int));
+        print("got: " + args.weight)
+        raise ImportError
+    doCalibration(args.scale, args.weight)
+    sys.exit(0)
 
 #Check AWS certificate files
 matches = glob.glob(args.awscerts + "/*.pem")
@@ -90,35 +253,8 @@ else:
     print("Error: Could not find certificate file in " + args.awscerts + "/")
     sys.exit(-1)
 
-#Load config file for AWS and HX711 interface settings
-try:
-    print("Loading settings from: " + args.config)
-    settings = json.load(open(args.config))
-    if (('hx711' not in settings) or
-        ('endpoint' not in settings) or
-        ('group' not in settings) or
-        ('thing' not in settings)):
-        print("Error: Invalid config file")
-        raise ImportError
-except:
-    print("Error: Could not load JSON configuratin file: " + args.config)
-    sys.exit(-1)
-
 #Redirect the rest to logfile
 sys.stdout = sys.stderr = open(LOGFILE, 'a')
-
-# Initialize Scales
-for config in settings['hx711']:
-    print("%s: Initializing %s (%d,%d) [%d/%d]" %
-          (datetime.datetime.now(), config['name'],
-           config['clk_gpio'], config['data_gpio'],
-           config['ref_unit'], config['tare_offset']))
-    hx = HX711(config['data_gpio'], config['clk_gpio'])
-    hx.set_reading_format("LSB", "MSB")
-    hx.set_reference_unit(config['ref_unit'])
-    hx.reset()
-    hx.set_tare(config['tare_offset'])
-    scaleDevices.append(hx)
 
 # Initialize MQTT session
 myMQTTClient = AWSIoTMQTTClient(settings['thing'])
