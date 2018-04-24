@@ -5,15 +5,13 @@
   "hx711":  [
     {
       "name": "LeftFridgeLeftTap",
-      "data_gpio": 24,
-      "clk_gpio": 23,
-      "ref_unit": 24.675,
-      "tare_offset" : 8671108 },
+      "iio": "/sys/bus/iio/devices/iio:device0/in_voltage0_raw",
+      "gain": 22.9,
+      "offset" : 8118108 },
     {
       "name": "LeftFridgeRightTap",
-      "data_gpio": 5,
-      "clk_gpio": 6,
-      "ref_unit": 24.675,
-      "tare_offset" : 8671108 }
+      "iio": "/sys/bus/iio/devices/iio:device1/in_voltage0_raw",
+      "gain": -17.3,
+      "offset" : 8134823 }
   ]
 }

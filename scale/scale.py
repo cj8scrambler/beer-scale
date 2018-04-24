@@ -7,8 +7,7 @@ import statistics
 import datetime
 import argparse
 import os.path
-import RPi.GPIO as GPIO
-from hx711 import HX711  # https://github.com/tatobari/hx711py
+#import RPi.GPIO as GPIO
 from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient
 
 LOGFILE = "/var/log/scale.log"
@@ -25,51 +24,28 @@ MAX_SAMPLES_PER_MQTT = 180  # Max samples between MQTT updates (happens with sta
 MEDIAN_FILTER_SIZE = 5
 MQTT_ALLOWED_VARIANCE = 5   # Variance (in grams) which triggers a new MQTT update
 
-# Globals
-# Neet to allocate these dynamicaly based on number of scales
-data = [[], []]
-last_mqtt_report = [0,0]
-updates = 0
-scaleDevices = []
 
 def cleanAndExit():
     GPIO.cleanup()
-    myMQTTClient.unsubscribe("device/+/tare")
     myMQTTClient.disconnect()
     print ("%s: Bye!" % datetime.datetime.now())
     sys.exit()
 
-def tareScale(scaleConfig):
-    scaleConfig['tare_offset'] = hx.tare()
-    print ("%s: Tare Value: %.2f" % (datetime.datetime.now(), scaleConfig['tare_offset']))
+def getScaleRaw(scaleConfig):
+    with open(scaleConfig['iio'], 'r') as iiof:
+        return int(iiof.read());
 
-def getScaleConfig(name):
-    global settings
-    for config in settings['hx711']:
-        if (config['name'] == name):
-            return config
+def getScaleReading(scaleConfig):
+    val = getScaleRaw(scaleConfig)
+    val = val - float(scaleConfig['offset'])
+    val = val / float(scaleConfig['gain'])
+    return val
 
-def handleIncoming(client, userdata, message):
-    path = message.topic.split("/")
-    if (len(path) == 3):
-        if (path[2] == "tare"):
-            config = getScaleConfig(path[2])
-            if config is not None:
-                tareScale(config)
-            else:
-                print("Invalid Scale: %s" % path[2])
-        else:
-            print("Received unkown message topic: ")
-            print(message.topic)
-    else:
-        print("Received invalid topic name: ")
-        print(message.topic)
-    
 def doCalibration(scaleName, calWeight):
-    CALIBRATION_SAMPLES = 10
-    CALIBRATION_STDEV = 0.0001
+    CALIBRATION_SAMPLES = 8
+    CALIBRATION_STDEV = 0.13  # 13% of mean
     CALIBRATION_SAMPLE_PERIOD = 1
-    CALIBRATION_TEST_THRESHOLD = 0.02 #% error allowed (0-1)
+    CALIBRATION_TEST_THRESHOLD = 0.03 # 3% error
     i=0
     scaleConfig=None;
     for config in settings['hx711']:
@@ -85,105 +61,92 @@ def doCalibration(scaleName, calWeight):
     print("-----------------------------------------------------");
     print("Scale should be empty");
 
-    # set reference to 1
-    scaleDevices[i].set_reference_unit(1);
-
     sys.stdout.write("Measuring");
-    while (len(data[i]) < CALIBRATION_SAMPLES):
-        val = scaleDevices[i].get_weight(5)[0]
-        data[i].append(val)
+    sys.stdout.flush()
+    while ((len(data[i]) < CALIBRATION_SAMPLES) or (statistics.stdev(data[i]) > abs(CALIBRATION_STDEV * (statistics.mean(data[i]))))): 
+        data[i].append(getScaleRaw(scaleConfig))
+        if (len(data[i]) > CALIBRATION_SAMPLES):
+            data[i].pop(0)
+        if (len(data[i]) > CALIBRATION_SAMPLES-1):
+            print ("  stddev: %.1f  mean: %.1f  threshold: %1.f   data: %s" % (statistics.stdev(data[i]), statistics.mean(data[i]), abs(CALIBRATION_STDEV * statistics.mean(data[i])), tuple(data[i])));
         sys.stdout.write('.')
-        scaleDevices[i].power_down()
-        scaleDevices[i].power_up()
-        time.sleep(CALIBRATION_SAMPLE_PERIOD)
-    while (statistics.stdev(data[i]) > CALIBRATION_STDEV): 
-        print ("  stddev: " + statistics.stdev(data[i]) + "  mean: " + statistics.mean(data[i]));
-        val = scaleDevices[i].get_weight(5)[0]
-        data[i].append(val)
-        data[i].pop(0)
-        sys.stdout.write('.')
-        scaleDevices[i].power_down()
-        scaleDevices[i].power_up()
+        sys.stdout.flush()
         time.sleep(CALIBRATION_SAMPLE_PERIOD)
     empty_meas = statistics.mean(data[i]);
+    print("got empty_meas: %.1f" % empty_meas);
 
     print("");
-    print("Place " + calWeight + " gram weight on scale");
-    while (statistics.stdev(data[i]) < 10 * CALIBRATION_STDEV):
-        val = scaleDevices[i].get_weight(5)[0]
-        data[i].append(val)
-        data[i].pop(0)
-        scaleDevices[i].power_down()
-        scaleDevices[i].power_up()
-
+    print("Place %d gram weight on scale" % calWeight);
+    time.sleep(2);
+    data[i].clear();
     sys.stdout.write("Measuring");
-    while (statistics.stdev(data[i]) > CALIBRATION_STDEV): 
-        print ("  stddev: " + stdev(data[i]));
-        val = scaleDevices[i].get_weight(5)[0]
-        data[i].append(val)
-        data[i].pop(0)
+    sys.stdout.flush()
+    while ((len(data[i]) < CALIBRATION_SAMPLES) or (statistics.stdev(data[i]) > 18000)):
+        data[i].append(getScaleRaw(scaleConfig))
+        if (len(data[i]) > CALIBRATION_SAMPLES):
+            data[i].pop(0)
+        if (len(data[i]) > CALIBRATION_SAMPLES-1):
+            print ("  stddev: %.1f  mean: %.1f  threshold: %1.f   data: %s" % (statistics.stdev(data[i]), statistics.mean(data[i]), abs(CALIBRATION_STDEV * statistics.mean(data[i])), tuple(data[i])));
         sys.stdout.write('.')
-        scaleDevices[i].power_down()
-        scaleDevices[i].power_up()
+        sys.stdout.flush()
         time.sleep(CALIBRATION_SAMPLE_PERIOD)
     cal_meas = statistics.mean(data[i]);
+    print("got cal_meas: %.1f" % cal_meas);
     print("");
 
-    ref_unit = (cal_meas - empty_meas) / calWeight
-    printf("empty: " + empty_meas + "   cal: " + cal_meas + "   ref_unit: " + ref_unit);
-    scaleDevices[i].set_reference_unit(ref_unit);
+    gain = (cal_meas - empty_meas) / calWeight
+    print("empty: %.1f   cal: %.1f   gain: %.1f" % (empty_meas, cal_meas, gain));
+    if (gain == 0):
+        print("Invalid measurements empty=%d  calibrated=%d" % (empty_meas, cal_meas))
+        sys.exit()
+        
+    scaleConfig['gain'] = gain
+    print("DZ: set gain to %f" % gain);
 
     print("Remove weight from scale to tare");
-    while (statistics.stdev(data[i]) < 10 * CALIBRATION_STDEV):
-        val = scaleDevices[i].get_weight(5)[0]
-        data[i].append(val)
-        data[i].pop(0)
-        scaleDevices[i].power_down()
-        scaleDevices[i].power_up()
-
+    time.sleep(2);
+    data[i].clear();
     sys.stdout.write("Waiting for stability")
-    while (statistics.stdev(data[i]) > CALIBRATION_STDEV): 
-        print ("  stddev: " + stdev(data[i]));
-        val = scaleDevices[i].get_weight(5)[0]
-        data[i].append(val)
-        data[i].pop(0)
+    sys.stdout.flush()
+    while ((len(data[i]) < CALIBRATION_SAMPLES) or (statistics.stdev(data[i]) > abs(CALIBRATION_STDEV * (statistics.mean(data[i]))))): 
+        data[i].append(getScaleRaw(scaleConfig))
+        if (len(data[i]) > CALIBRATION_SAMPLES):
+            data[i].pop(0)
+        if (len(data[i]) > CALIBRATION_SAMPLES-1):
+            print ("  stddev: %.1f  mean: %.1f  threshold: %1.f   data: %s" % (statistics.stdev(data[i]), statistics.mean(data[i]), abs(CALIBRATION_STDEV * statistics.mean(data[i])), tuple(data[i])));
         sys.stdout.write('.')
-        scaleDevices[i].power_down()
-        scaleDevices[i].power_up()
+        sys.stdout.flush()
         time.sleep(CALIBRATION_SAMPLE_PERIOD)
-    scaleConfig['tare_offset'] = scaleDevices[i].tare();
+    scaleConfig['offset'] = statistics.mean(data[i]);
+    print("got offset: %.1f" % scaleConfig['offset']);
     print("");
 
-    print ("  tare: " + scaleConfig['tare_offset']);
-
-    print("Place " + calWeight + " gram weight on scale to verify");
-    while (statistics.stdev(data[i]) < 10 * CALIBRATION_STDEV):
-        val = scaleDevices[i].get_weight(5)[0]
-        data[i].append(val)
-        data[i].pop(0)
-        scaleDevices[i].power_down()
-        scaleDevices[i].power_up()
-
+    print("Place %d gram weight on scale to verify" % calWeight);
+    time.sleep(2);
+    data[i].clear();
     sys.stdout.write("Waiting for stability")
-    while (statistics.stdev(data[i]) > CALIBRATION_STDEV): 
-        print ("  stddev: " + stdev(data[i]));
-        val = scaleDevices[i].get_weight(5)[0]
-        data[i].append(val)
-        data[i].pop(0)
+    sys.stdout.flush()
+    while ((len(data[i]) < CALIBRATION_SAMPLES) or (statistics.stdev(data[i]) > abs(CALIBRATION_STDEV * (statistics.mean(data[i]))))): 
+        data[i].append(getScaleReading(scaleConfig))
+        if (len(data[i]) > CALIBRATION_SAMPLES):
+            data[i].pop(0)
+        if (len(data[i]) > CALIBRATION_SAMPLES-1):
+            print ("  stddev: %.1f  mean: %.1f  threshold: %1.f   data: %s" % (statistics.stdev(data[i]), statistics.mean(data[i]), abs(CALIBRATION_STDEV * statistics.mean(data[i])), tuple(data[i])));
         sys.stdout.write('.')
-        scaleDevices[i].power_down()
-        scaleDevices[i].power_up()
+        sys.stdout.flush()
         time.sleep(CALIBRATION_SAMPLE_PERIOD)
     check_weight = statistics.mean(data[i]);
     print("");
 
-    print ("Cailibration weight: " + calWeight);
-    print ("Measured weight: " + check_weight);
+    print ("Cailibration weight: %.1f" % calWeight);
+    print ("Measured weight: %.1f" % check_weight);
     if (((calWeight-check_weight)/calWeight) > CALIBRATION_TEST_THRESHOLD):
         print ("Failed calibration")
     else:
         print ("Passed calibration")
         # Write JSON config file back now
+        with open(args.config, "w") as f:
+            json.dump(settings, f);
 
     return
 
@@ -208,18 +171,22 @@ except:
     print("Error: Could not load JSON configuratin file: " + args.config)
     sys.exit(-1)
 
-# Initialize Scales
-for config in settings['hx711']:
-    print("%s: Initializing %s (%d,%d) [%d/%d]" %
-          (datetime.datetime.now(), config['name'],
-           config['clk_gpio'], config['data_gpio'],
-           config['ref_unit'], config['tare_offset']))
-    hx = HX711(config['data_gpio'], config['clk_gpio'])
-    hx.set_reading_format("LSB", "MSB")
-    hx.set_reference_unit(config['ref_unit'])
-    hx.reset()
-    hx.set_tare(config['tare_offset'])
-    scaleDevices.append(hx)
+# Globals Variables
+updates = 0
+
+# Create lists of lists to hold data for each scale
+data = [[] for x in range(len(settings['hx711']))]
+last_mqtt_report = [[] for x in range(len(settings['hx711']))]
+
+# Validate scale configs
+#for config in settings['hx711']:
+#    print("%s: Validating %s" % (datetime.datetime.now(), config['name']))
+#    hx = HX711(config['data_gpio'], config['clk_gpio'])
+#    hx.set_reading_format("LSB", "MSB")
+#    hx.set_reference_unit(config['gain'])
+#    hx.reset()
+#    hx.set_tare(config['offset'])
+#    scaleDevices.append(hx)
 
 if (args.weight is not None):
     if (args.scale is None):
@@ -267,16 +234,17 @@ myMQTTClient.configureMQTTOperationTimeout(5)  # 5 sec
 print ("%s: Connect to MQTT endpiont: %s  thing: %s" %
        (datetime.datetime.now(), settings['endpoint'], settings['thing']))
 myMQTTClient.connect()
-myMQTTClient.subscribe("device/+/tare", 1, handleIncoming)
 
 while True:
     try:
         weight_change = False
         updates += 1
-        # Read each scale
+#         Read each scale
         i = 0
-        while i < len(scaleDevices):
-            val = scaleDevices[i].get_weight(5)[0]
+        for config in settings['hx711']:
+            print("DZ going to get scale reading with:");
+            print(config);
+            val = getScaleReading(config)
             data[i].append(val)
 
             while len(data[i]) > MEDIAN_FILTER_SIZE:
@@ -285,8 +253,6 @@ while True:
             print ("%s: %s:  %.1f kg    [Val: %.2f  Size: %d/%d   update: %d/%.1f]" %
                     (datetime.datetime.now(), settings['hx711'][i]['name'], statistics.median(data[i]) / 1000.0,
                      val, len(data[i]), MEDIAN_FILTER_SIZE, updates % MAX_SAMPLES_PER_MQTT, MAX_SAMPLES_PER_MQTT))
-            scaleDevices[i].power_down()
-            scaleDevices[i].power_up()
 
             if (abs(statistics.median(data[i]) - last_mqtt_report[i]) > MQTT_ALLOWED_VARIANCE):
                 print ("  Detected weight change on %s: delta: %.1f" % (settings['hx711'][i]['name'], statistics.median(data[i]) - last_mqtt_report[i]))
@@ -300,7 +266,8 @@ while True:
             update['state']['reported'] = {}
             update['state']['reported']['taps'] = []
             j = 0
-            while j < len(scaleDevices):
+            while j < len(data):
+                print("DZ: j=%d data: %s\n" % (j, data))
                 weight = round(statistics.median(data[j]), 1)
                 datapoint = dict()
                 datapoint['tap'] = settings['hx711'][j]['name']

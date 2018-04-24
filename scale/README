@@ -1,0 +1,57 @@
+Kernel Driver Dependencies
+--------------------------
+
+scale.py script depends on the hx711 kernel module to read the scale values.
+Readings are done with the kernel module instead of user space python
+code because that's the only way to guarantee the strict timing
+requirements on the hx711 especially on small systems like
+Raspberry Pi Zero.  If the clock line remains high too long, the hx711
+goes to low power mode and the data received is garbage.  The kernel
+module is able to disable pre-emption for this critical time window
+which leads to much cleaner data.
+
+Unfortunately the hx711 module is not built or configured by default
+on Raspberry Pi.  Here are instructions to build and configure it.
+Warning: these instructions involve building on Pi.  This is very
+slow (like over 16 hours to build slow).  This can be cross-compiled
+from another machine much faster if your motivated to do so.
+
+  # Fetch kernel source (ran out of memory w/out depth 1)
+  git --depth 1 clone https://github.com/raspberrypi/linux
+
+  # Apply changes to enable hx711 module and create a dts overlay
+  cd linux
+  ------------------------------
+  git am [path to]/0001-Enable-and-configure-hx711-for-Raspberry-Pi-Zero.patch
+
+  # Configure the kernel build
+  KERNEL=kernel
+  make bcmrpi_defconfig
+
+  # Build the kernel (took 16.6 hours on Pi Zero)
+  make -j 2 zImage modules dtbs
+
+  # Install the new kernel
+  sudo make modules_install
+  sudo cp arch/arm/boot/zImage /boot/$KERNEL-hx711.img
+  sudo cp arch/arm/boot/dts/*.dtb /boot
+  sudo cp arch/arm/boot/dts/overlays/*.dtb* /boot/overlays/
+  sudo cp arch/arm/boot/dts/overlays/README /boot/overlays/
+
+  # Configure board to boot with new kernel and configure
+  # instance(s) of hx711 devices.  Append to /boot/config.txt:
+    # Enable HX711 driver
+    kernel=kernel-hx711.img
+
+    # Load 1st HX711 instance
+    dtoverlay=hx711
+    dtparam=gpio_sck=6,gpio_dout=5
+
+    # Optionally add more instances
+    #dtoverlay=hx711
+    #dtparam=gpio_sck=23,gpio_dout=24
+ 
+Python Dependencies
+-------------------
+  sudo apt-get install python3-pip
+  sudo pip3 install AWSIotPythonSDK

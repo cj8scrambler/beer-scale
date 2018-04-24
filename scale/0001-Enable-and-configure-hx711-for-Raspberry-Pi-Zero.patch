@@ -1,0 +1,92 @@
+From a57f8ee57c63fdfa9b7eac7ed6709185b2d75288 Mon Sep 17 00:00:00 2001
+From: Doug Zobel <zobel_junk@hotmail.com>
+Date: Tue, 24 Apr 2018 21:38:44 +0000
+Subject: [PATCH] Enable and configure hx711 for Raspberry Pi Zero
+
+---
+ arch/arm/boot/dts/overlays/Makefile          |  1 +
+ arch/arm/boot/dts/overlays/hx711-overlay.dts | 47 ++++++++++++++++++++++++++++
+ arch/arm/configs/bcmrpi_defconfig            |  1 +
+ 3 files changed, 49 insertions(+)
+ create mode 100644 arch/arm/boot/dts/overlays/hx711-overlay.dts
+
+diff --git a/arch/arm/boot/dts/overlays/Makefile b/arch/arm/boot/dts/overlays/Makefile
+index 5439afd9b..18922abf3 100644
+--- a/arch/arm/boot/dts/overlays/Makefile
++++ b/arch/arm/boot/dts/overlays/Makefile
+@@ -42,6 +42,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
+ 	hifiberry-digi-pro.dtbo \
+ 	hy28a.dtbo \
+ 	hy28b.dtbo \
++	hx711.dtbo \
+ 	i2c-bcm2708.dtbo \
+ 	i2c-gpio.dtbo \
+ 	i2c-mux.dtbo \
+diff --git a/arch/arm/boot/dts/overlays/hx711-overlay.dts b/arch/arm/boot/dts/overlays/hx711-overlay.dts
+new file mode 100644
+index 000000000..c9a774d9b
+--- /dev/null
++++ b/arch/arm/boot/dts/overlays/hx711-overlay.dts
+@@ -0,0 +1,47 @@
++// Definitions for hx711 module
++#include <dt-bindings/gpio/gpio.h>
++
++/dts-v1/;
++/plugin/;
++
++/ {
++	compatible = "brcm,bcm2708";
++
++	fragment@0 {
++		target-path = "/";
++		__overlay__ {
++			hx711: hx711@0 {
++			        compatible = "avia,hx711";
++				pinctrl-names = "default";
++				pinctrl-0 = <&hx711_pins>; /* not sure how to handle multiple instances with this */
++				status = "okay";
++
++			        sck-gpios = <&gpio 23 GPIO_ACTIVE_HIGH>;
++			        dout-gpios = <&gpio 24 GPIO_ACTIVE_HIGH>;
++				avdd-supply = <&vdd_3v3_reg>;
++			};
++		};
++	};
++
++	fragment@1 {
++		target = <&gpio>;
++		__overlay__ {
++
++                        hx711_pins: hx711_pins@0 {
++                                brcm,pins = <23 24>;   /* SCK  DOUT */
++                                brcm,function = <1 0>; /* out   in  */
++				brcm,pull = <0 0>;     /* off  off  */
++                        };
++		};
++	};
++
++	__overrides__ {
++                gpio_sck =      <&hx711>,"sck-gpios:4",
++				<&hx711>,"reg:0",
++				<&hx711_pins>,"brcm,pins:0",
++				<&hx711_pins>,"reg:0";
++
++                gpio_dout =     <&hx711>,"dout-gpios:4",
++				<&hx711_pins>,"brcm,pins:4";
++	};
++};
+diff --git a/arch/arm/configs/bcmrpi_defconfig b/arch/arm/configs/bcmrpi_defconfig
+index e5aae4616..b382ac04d 100644
+--- a/arch/arm/configs/bcmrpi_defconfig
++++ b/arch/arm/configs/bcmrpi_defconfig
+@@ -1194,6 +1194,7 @@ CONFIG_EXTCON=m
+ CONFIG_EXTCON_ARIZONA=m
+ CONFIG_IIO=m
+ CONFIG_IIO_BUFFER_CB=m
++CONFIG_HX711=m
+ CONFIG_MCP320X=m
+ CONFIG_MCP3422=m
+ CONFIG_DHT11=m
+-- 
+2.11.0
+
