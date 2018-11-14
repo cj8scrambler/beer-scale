@@ -1,0 +1,11 @@
+Attempts to build from command line (currently not working):
+
+  * Install 0.3.1 (0.3.2 is broke) arduino-cli tool: https://github.com/arduino/arduino-cli#getting-started
+  * create /usr/local/bin/.cli-config.yml  with:
+board_manager:
+  additional_urls:
+    - https://adafruit.github.io/arduino-board-index/package_adafruit_index.json
+
+  * arduino-cli core update-index
+  * arduino-cli core install adafruit:avr
+  * Verify with:
