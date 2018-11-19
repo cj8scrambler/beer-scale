@@ -45,7 +45,8 @@ module rounded_square(x, y, z, corner_radius) {
 }
 
 // Sensor
-color([0.7,0.7,0.7]) union()
+// Remove the * to uncomment and show the sensor inside the clip:
+*color([0.7,0.7,0.7]) union()
 {
     union()
     {
@@ -106,8 +107,8 @@ clip_rise = 1.5; // thickness above clip
 buffer = 0.25;  // space between sensor and clip
 
 nub_height = 1.0; // thickness of nub that holds clip in
-len_percentage = 0.27; // perctage of sensor length covered by clip
-width_percentage = 0.85; // perctage of sensor width that's open
+len_percentage = 0.35; // perctage of sensor length not covered by clip
+width_percentage = 0.85; // width of clip top
 
 //base_radius=25.4;  //  2" diameter circle)
 base_radius=23.8125;  // 1 7/8" diameter circle)
@@ -118,6 +119,7 @@ union ()
     clip_outside = sensor_width+clip_thickness+buffer;
     clip_inside = sensor_width+buffer;
 
+    // round base
     translate([0,0,sensor_thick]) difference ()
     {
         cylinder(r=base_radius, h=base_depth);
@@ -127,18 +129,21 @@ union ()
     difference() {
         union()
         {
+            // clip perimiter
             difference()
             {
                 translate([0,0,-clip_rise]) rounded_square(clip_outside, clip_outside, sensor_thick+clip_rise, sensor_corner_radius);
                 translate([0,0,-clip_rise-fudge/2]) rounded_square(clip_inside, clip_inside, sensor_thick+clip_rise+fudge, sensor_corner_radius);
             }
 
+            // top ridge
             difference()
             {
                 translate([0,0,-clip_rise-buffer]) rounded_square(clip_outside, clip_outside, clip_rise, sensor_corner_radius);
                 translate([0,0,-clip_rise-buffer-fudge/2]) rounded_square(width_percentage*clip_outside, width_percentage*clip_outside, clip_rise+fudge, sensor_corner_radius);
             }
         }
+        // cutaway
         color([0.1,0.1,0.7]) translate([0,-0.5*(clip_outside*(1-len_percentage)+fudge),-nub_height]) cube([clip_outside+fudge,clip_outside*len_percentage+fudge,sensor_thick+clip_rise+fudge],center=true);
     }
 }
