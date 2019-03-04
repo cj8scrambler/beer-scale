@@ -19,8 +19,8 @@
 <script src="https://code.highcharts.com/modules/exporting.js"></script>
 
 <script>
-length = "days=12"
-tapname = "LeftFridgeLeftTap";
+length = "days=128";
+tapname = "Tap%201";
 group = "FultonKitchen";
 apiUrl = "https://b67qghztgl.execute-api.us-west-2.amazonaws.com/dev/";
 function getKegState(sel) {
@@ -59,8 +59,9 @@ function getKegState(sel) {
     series: []
   };
 
-  console.log("DZ: options:", options);
+//  console.log("DZ: options:", options);
   var url =  apiUrl + group + "/" + tapname + "/history/?age=0&" + length;
+//  console.log("DZ: fetch age 0 data with:", url);
   jQuery.getJSON(url,  function(data) {
 //    console.log("DZ: age 0 length:", data.length);
     if (data.length) {
@@ -109,13 +110,21 @@ function getKegState(sel) {
 //                    console.log("DZ: got age 64 data:", data);
                     options.series.push({ data: data, name: "Age 64", });
                 }
-  
-                Highcharts.setOptions({
-                  global: {
-                    useUTC: false,
+
+                var url =  apiUrl + group + "/" + tapname + "/history/?age=128&" + length;
+                jQuery.getJSON(url,  function(data) {
+                  if (data.length) {
+//                      console.log("DZ: got age 128 data:", data);
+                      options.series.push({ data: data, name: "Age 128", });
                   }
+  
+                  Highcharts.setOptions({
+                    global: {
+                      useUTC: false,
+                    }
+                  });
+                  var chart = new Highcharts.Chart(options);
                 });
-                var chart = new Highcharts.Chart(options);
               });
             });
           });
