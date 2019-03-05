@@ -1,0 +1,15 @@
+scaleconfig.json setup:
+    "thing": A single 'thingName' from: aws iot list-things (represents a single RaspberryPi)
+    "endpoint": 'endpointAddress' from: aws iot describe-endpoint
+    "certdir": Directory containing certs for this thing
+    "group": Group that thing is a member of: aws iot list-thing-groups-for-thing --thing-name [thingName]
+    "scales": [{
+            "blename": ble name of arduino board #1
+            "sensors": ["Tap 1", "Tap 2"]
+        },
+        {
+            "blename": ble name of arduino board #2
+            "sensors": ["Tap 3", "Tap 4", "Tap 5", "Tap 6"]
+        }
+    ]
+}
