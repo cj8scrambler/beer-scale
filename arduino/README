@@ -1,3 +1,15 @@
+Arduino IDE Setup:
+
+  File->Preferences->Additional Boards Manager URLs: 
+  *  https://adafruit.github.io/arduino-board-index/package_adafruit_index.json
+
+  Install Libraries: (Sketch->Inclue Library->Add .ZIP Library...)
+  *  Q2HX711: https://github.com/queuetue/Q2-HX711-Arduino-Library/archive/master.zip
+  *  Running Median: https://github.com/RobTillaart/Arduino/archive/master.zip
+  *  Low Power: https://github.com/rocketscream/Low-Power/archive/master.zip
+  *  Adafruite BLE: https://github.com/adafruit/Adafruit_BluefruitLE_nRF51/archive/master.zip
+
+-------------------------------------------------------------
 Attempts to build from command line (currently not working):
 
   * Install 0.3.1 (0.3.2 is broke) arduino-cli tool: https://github.com/arduino/arduino-cli#getting-started
