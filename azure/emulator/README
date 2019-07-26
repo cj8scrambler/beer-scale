@@ -1,0 +1,40 @@
+Python script to generate some dummy data emulating a scale
+device.  If you don't have a raspberry pi connected to a scale,
+this can be used to fill the pipeline with some data.
+
+Be sure to update the CONNECTION_STRING constant inside the
+scale.py script!  The value to put here is printed by the
+provision.sh script as "Node# Connection String" (where #
+is any one of the multiple nodes available)
+
+Script depends on the Azure IOT client python SDK which is
+hard to install.  This is how I got it working:
+
+# May need to add swap disk if < 2GB RAM avaialble
+  sudo dd if=/dev/zero of=swapfile bs=1M count=3000
+  sudo mkswap swapfile
+  sudo swapon swapfile
+
+# Pull Azure Python IOT SDK
+git clone --recursive https://github.com/Azure/azure-iot-sdk-python.git
+cd azure-iot-sdk-python/build_all/linux
+
+# Build/Install for python 2
+./setup.sh
+./build.sh
+cp ../../c/cmake/iotsdk_linux/python/src/iothub_client.so release_device_client/iothub_client/
+cd release_device_client/
+sudo python setup.py install
+sudo cp -r iothub_client/ /usr/local/lib/python2.7/dist-packages/
+
+# Clean up
+cd -
+git clean -xdf
+
+# Build/Install for python 3
+./setup.sh --python-version 3.6
+./build.sh --build-python 3.6
+cp ../../c/cmake/iotsdk_linux/python/src/iothub_client.so release_device_client/iothub_client/
+cd release_device_client/
+sudo python3 setup.py install
+sudo cp -r iothub_client/ /usr/local/lib/python3.6/dist-packages/
