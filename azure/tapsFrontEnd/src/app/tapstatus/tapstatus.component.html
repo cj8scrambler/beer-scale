@@ -1,0 +1,12 @@
+<div class="container">
+  <p class="name">{{tap.beername}}</p>
+  <p class="brewer">{{tap.brewer}}</p>
+  <p class="location">{{tap.location}}</p>
+  <app-beerglass [tap]="tap"></app-beerglass>
+  <p class="style">{{tap.style}}</p>
+  <div class="stats">
+    <p class="ibu"><b>IBU:</b> {{tap.ibu}}</p>
+    <p class="abv"><b>ABV:</b> {{tap.abv}}%</p>
+    <!--p class="color">{{tap.color}}</p!-->
+  </div>
+</div>

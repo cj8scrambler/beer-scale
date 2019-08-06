@@ -1,0 +1,11 @@
+<div class="header">
+    <p class="lead">Beer on Tap</p>
+    <p class="subhead">at the Chicago Office</p>
+  </div>
+
+<div class="taplist">
+  <div *ngIf="isloading" class="spinner"><span><b>Loading...</b></span></div>
+  <app-tapstatus *ngFor="let tap of tapList$"
+    [tap]="tap">
+  </app-tapstatus>
+</div>

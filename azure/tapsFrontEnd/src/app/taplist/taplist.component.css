@@ -1,0 +1,30 @@
+.header {
+  text-align: center;
+}
+
+.spinner {
+  text-align: center;
+  vertical-align: bottom;
+  font-size: 2rem;
+}
+
+.lead {
+  margin: 0;
+  font-weight: bold;
+  font-size: 65px;
+  text-shadow: 4px 4px 4px #111;
+}
+
+.subhead {
+  margin: 0;
+  font-size: 1.4rem;
+  color: #999;
+}
+
+.taplist {
+    /* width: 1000px; */
+    width: 80%;
+    margin:0 auto;
+    margin-top: 20px;
+  }
+  

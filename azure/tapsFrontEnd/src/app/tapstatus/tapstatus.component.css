@@ -1,0 +1,53 @@
+.container {
+  text-align: center;
+  display: inline-block;
+  position: relative;
+  margin: 1%;
+  float: left;
+  width: 23%;
+  /*max-width: 200px;*/
+  *max-width: 25%;
+
+  padding-top: 25px;
+  background: #222;
+  border-radius: 2px;
+  box-shadow: 0 0px 12px #222;
+}
+
+.name {
+  font-size: 1.6rem;
+  margin-bottom: 10px;
+  font-weight: bold;
+}
+
+.brewer {
+  font-size: 1.2rem;
+  margin: 1px;
+  font-weight: bold;
+}
+
+.location {
+  font-size: 1rem;
+  padding-top: 5px;
+  margin: 1px;
+  color: #999;
+}
+
+.style {
+  font-size: 1em;
+  color: #999;
+}
+
+.glass {
+  display: block;
+  margin:20px auto;
+}
+
+.stats {
+  font-size: 0.70em;
+  padding-left: 10px;
+  padding-right: 10px;
+  color: #999;
+  display: flex;
+  justify-content: space-between;
+}
