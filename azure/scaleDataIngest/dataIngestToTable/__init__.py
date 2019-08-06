@@ -3,36 +3,62 @@ import logging
 import json
 
 import azure.functions as func
+from applicationinsights.logging import LoggingHandler
+from applicationinsights import TelemetryClient
 from azure.cosmosdb.table.tableservice import TableService
 from azure.cosmosdb.table.models import Entity
 
+TABLE_NAME_HISTORICAL_DATA = os.environ['HistoricalDataTableName']
+TABLE_NAME_CONFIGURATION = os.environ['ConfigurationTableName']
+
 def main(event: func.EventHubEvent):
-    logging.debug('Function triggered to process a message: %s', event)
-    logging.debug('  body: %s', event.get_body())
-    logging.debug('  EnqueuedTimeUtc: %s', event.enqueued_time)
-    logging.debug('  SequenceNumber: %s', event.sequence_number)
-    logging.debug('  Offset: %s', event.offset)
-    logging.debug('  Partition: %s', event.partition_key)
-    logging.debug('  Metadata: %s', event.iothub_metadata)
+    handler = LoggingHandler(os.environ['APPINSIGHTS_INSTRUMENTATIONKEY'])
+    logging.basicConfig(handlers=[ handler ], format='%(levelname)s: %(message)s', level=logging.DEBUG)
+
+    tc = TelemetryClient(os.environ['APPINSIGHTS_INSTRUMENTATIONKEY'])
+    tc.track_event("Incoming event")
+    tc.flush()
+
+    logging.info('Function triggered to process a message: %s', event)
+    logging.info('  body: %s', event.get_body())
+    logging.info('  EnqueuedTimeUtc: %s', event.enqueued_time)
+    logging.info('  SequenceNumber: %s', event.sequence_number)
+    logging.info('  Offset: %s', event.offset)
+    logging.info('  Partition: %s', event.partition_key)
+    logging.info('  Metadata: %s', event.iothub_metadata)
 
     table_service = TableService(connection_string=os.environ['AzureTableConnectionString'])
 
     for datapoint in json.loads(event.get_body()):
-        if datapoint is not None and 'tap' in datapoint and 'timestamp' in datapoint:
+        # Expected data format:
+        #   {"timestamp": 1564598054, "deviceid": "Node1", "scale": 2, "temperature": 1.1,"weight": 10000}
+        if datapoint is not None and 'deviceid' in datapoint and \
+           'timestamp' in datapoint and 'scale' in datapoint and \
+           'weight' in datapoint:
             logging.debug('  datapoint: %s', (datapoint))
-            # Expected data format:
-            #   {'timestmap': 1564062672, 'tap': 'Tap 1', 'temperature': 1.0, 'weight': 7915}
-            #
-            # tap name is used as partition key.  Timestamp is used as RowKey
-            # since it's unique, however since RowKey must be a string,
-            # timestamp is duplicated as an int column to keep it searchable.
-            # The rest of the datapoint elements are added as columns as well.
-            entry = {}
-            entry['PartitionKey'] = datapoint.pop('tap')
-            entry['RowKey'] = str(datapoint['timestamp'])
-            entry.update(datapoint.items())
-            logging.debug('entry: %s' % (entry))
-            table_service.insert_entity('ScaleDataTable', entry)
-            logging.info('Added table entry: %s', (entry))
+            # deviceid is used as partition key.
+            # {timestamp}-{scale} is used as RowKey
+            # timestamp and scale number are duplicated as an int columns
+            # to keep them searchable.  The rest of the datapoint elements
+            # are added as columns as well.
+            history = {}
+            history['PartitionKey'] = datapoint.pop('deviceid')
+            history['RowKey'] = str(datapoint['timestamp']) + '-' + str(datapoint['scale'])
+            history.update(datapoint.items())
+            logging.debug('history: %s' % (history))
+            table_service.insert_entity(TABLE_NAME_HISTORICAL_DATA, history)
+            logging.info('Added historical table data: %s', (history))
+
+            # Touch/create the row in the config table for each reported scale with latest weight
+            configupdate = {}
+            configupdate['PartitionKey'] = history['PartitionKey']
+            configupdate['RowKey'] = str(history['scale'])
+            configupdate['weight'] = history['weight']
+            if 'temperature' in history:
+                configupdate['temperature'] = history['temperature']
+            logging.info('config update: %s' % (configupdate))
+            logging.info('Writing to table: %s' % (TABLE_NAME_CONFIGURATION))
+            table_service.insert_or_merge_entity(TABLE_NAME_CONFIGURATION, configupdate)
+            logging.info('Updated configuration table entry: %s', (configupdate))
         else:
             logging.info('  Invalid datapoint: %s', (datapoint))
