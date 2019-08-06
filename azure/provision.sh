@@ -8,15 +8,19 @@
 #       Event Hub
 #     Storage Account (-s flag)
 #       Storage Table
+#       Enable static html hosting
 #     Route all messages from IOT Hub to Event Hub
 #     Function App (-a & -L flags)
 #       Configure Event Hub & Storage Table connection strings
-#       Install scaleDataIngest as Function app
+#       Install scaleDataIngest as function app
+#     Web App (-a & -L flags)
+#       Install scaleAPI as web app
+#     Populate files in html/ with custom URLs and upload
 
 # For each named resource the following priorities will be used:
 #   use name supplied on command line if it already exists in azure
 #   use the default name (below) if it already exists in azure
-#   use first resource (of same type) found in the resource group
+#   use first resource (of same type) found in the resource group (not table names)
 #   create new resource with the name supplied on command line
 #   create new resource with default name
 
@@ -43,15 +47,23 @@ RANDO=$(head /dev/urandom | tr -dc a-z0-9 | head -c 10 ; echo '')
   EH_NAME="scaleeventhub"
   EH_AUTH_POLICY="${EH_NAME}_send_policy"
 
-  # App
+  # Function App (move data from EventHub to Storage Tables)
   FUNC_APP_OS_TYPE="linux"
   FUNC_APP_RUNTIME="python"
   FUNC_APP_LOCAL_DIRECTORY="scaleDataIngest"
 
+  # Web App (provide REST API for data)
+  WEB_APP_NAME="ScaleWebApp${RANDO}"
+  WEB_APP_PLAN="ScaleWebAppPlan${RANDO}"
+  WEB_APP_SKU="F1"
+  WEB_APP_LOCAL_DIRECTORY="scaleAPI"
+
   # Storage
   STORAGE_SKU="Standard_LRS"
   STORAGE_KIND="StorageV2"
-  TABLE_NAME="ScaleDataTable"
+  TABLE_NAME_CONFIG="ScaleConfigTable"
+  TABLE_NAME_HISTORY="ScaleDataTable"
+  STORAGE_HTML_LOCALDIR="html"
 
   # Message Route
   ROUTE_NAME="Ioth2EhRoute"
@@ -108,6 +120,7 @@ while getopts ":hg:i:l:n:s:a:L:" opt; do
 done
 
 COMMON_ARGS="-l ${LOCATION} -g ${GROUP} --output ${OUTPUT}"
+ROOTDIR="$(cd "$(dirname "${BASH_SOURCE}")" >/dev/null 2>&1 && pwd)"
 
 # Make sure az command is available and authenticated
 az group list > /dev/null 2>&1
@@ -278,6 +291,13 @@ else
   echo "Using existing storage account: ${STORAGE_ACCT_NAME}"
 fi
 
+# Enable HTML hosting
+az storage blob service-properties update --account-name ${STORAGE_ACCT_NAME} --static-website --index-document index.html > /dev/null
+if [[ $? -ne 0 ]]
+then
+  exit -1
+fi
+
 # Get storage account key
 STORAGE_ACCT_KEY=$(az storage account keys list -g ${GROUP} --account-name ${STORAGE_ACCT_NAME} --output json --query "[0].value" | tr -d '"')
 if [[ $? -ne 0 ]]
@@ -287,25 +307,31 @@ then
   exit -1
 fi
 
-# Verify / provision storage table
-if [[ $(az storage table exists --account-name ${STORAGE_ACCT_NAME} -n ${TABLE_NAME} --output tsv) != True ]]
+# Verify / provision configuration storage table
+if [[ $(az storage table exists --account-name ${STORAGE_ACCT_NAME} -n ${TABLE_NAME_CONFIG} --output tsv) != True ]]
 then
-  VALUE=$(az storage table list --account-name ${STORAGE_ACCT_NAME} --output json --query "[0].name" 2>/dev/null | tr -d '"')
-  if [[ $? -eq 0 && ! -z ${VALUE} ]]
+  echo "az storage table create --account-name ${STORAGE_ACCT_NAME} -n ${TABLE_NAME_CONFIG} --output ${OUTPUT}"
+  az storage table create --account-name ${STORAGE_ACCT_NAME} -n ${TABLE_NAME_CONFIG} --output ${OUTPUT}
+  if [[ $? -ne 0 ]]
   then
-    TABLE_NAME=${VALUE}
-    echo "Using existing table name: ${TABLE_NAME}"
-  else
-    echo "az storage table create --account-name ${STORAGE_ACCT_NAME} -n ${TABLE_NAME} --output ${OUTPUT}"
-    az storage table create --account-name ${STORAGE_ACCT_NAME} -n ${TABLE_NAME} --output ${OUTPUT}
-    if [[ $? -ne 0 ]]
-    then
-      exit -1
-    fi
-    echo ""
+    exit -1
   fi
 else
-  echo "Using existing storage table: ${TABLE_NAME}"
+  echo "Using existing storage table: ${TABLE_NAME_CONFIG}"
+fi
+
+# Verify / provision historical data storage table
+if [[ $(az storage table exists --account-name ${STORAGE_ACCT_NAME} -n ${TABLE_NAME_HISTORY} --output tsv) != True ]]
+then
+  echo "az storage table create --account-name ${STORAGE_ACCT_NAME} -n ${TABLE_NAME_HISTORY} --output ${OUTPUT}"
+  az storage table create --account-name ${STORAGE_ACCT_NAME} -n ${TABLE_NAME_HISTORY} --output ${OUTPUT}
+  if [[ $? -ne 0 ]]
+  then
+    exit -1
+  fi
+  echo ""
+else
+  echo "Using existing storage table: ${TABLE_NAME_HISTORY}"
 fi
 
 ## Verify / provision event hub endpoint in iothub
@@ -370,9 +396,7 @@ then
     echo "az functionapp create --resource-group ${GROUP} --output ${OUTPUT} --name ${FUNC_APP_NAME} "\
         "--storage-account ${STORAGE_ACCT_NAME} --consumption-plan-location ${FUNC_APP_LOC} "   \
         "--os-type ${FUNC_APP_OS_TYPE}  --runtime ${FUNC_APP_RUNTIME} "
-    az functionapp create --resource-group ${GROUP} --output ${OUTPUT} --name ${FUNC_APP_NAME} \
-        --storage-account ${STORAGE_ACCT_NAME} --consumption-plan-location ${FUNC_APP_LOC}    \
-        --os-type ${FUNC_APP_OS_TYPE}  --runtime ${FUNC_APP_RUNTIME} > /dev/null
+    az functionapp create --resource-group ${GROUP} --output ${OUTPUT} --name ${FUNC_APP_NAME} --storage-account ${STORAGE_ACCT_NAME} --consumption-plan-location ${FUNC_APP_LOC} --os-type ${FUNC_APP_OS_TYPE}  --runtime ${FUNC_APP_RUNTIME} > /dev/null
     if [[ $? -ne 0 ]]
     then
       exit -1
@@ -382,6 +406,10 @@ then
 else
   echo "Using existing function app name: ${FUNC_APP_NAME}"
 fi
+
+# Function app will automaticly create an ApplicationInsights resource.  Get the InstrumentationKey from it
+# to re-use later for the Web App
+AI_KEY=$(az resource show -g ${GROUP} -n ${FUNC_APP_NAME} --resource-type "Microsoft.Insights/components" --query properties.InstrumentationKey 2>/dev/null | tr -d '"')
 
 # Configure connections strings in App Settings
 echo "Update function app table connection string"
@@ -400,6 +428,22 @@ then
   exit -1
 fi
 
+echo "Update function app configuration table name"
+#echo "az functionapp config appsettings set --resource-group ${GROUP} --name ${FUNC_APP_NAME} --settings \"ConfigurationTableName=${TABLE_NAME_CONFIG}\""
+az functionapp config appsettings set --resource-group ${GROUP} --name ${FUNC_APP_NAME} --settings "ConfigurationTableName=${TABLE_NAME_CONFIG}" > /dev/null
+if [[ $? -ne 0 ]]
+then
+  exit -1
+fi
+
+echo "Update function app historical data table name"
+#echo "az functionapp config appsettings set --resource-group ${GROUP} --name ${FUNC_APP_NAME} --settings \"HistoricalDataTableName=${TABLE_NAME_HISTORY}\""
+az functionapp config appsettings set --resource-group ${GROUP} --name ${FUNC_APP_NAME} --settings "HistoricalDataTableName=${TABLE_NAME_HISTORY}" > /dev/null
+if [[ $? -ne 0 ]]
+then
+  exit -1
+fi
+
 func > /dev/null 2>&1
 if [[ $? -ne 0 ]]
 then
@@ -411,13 +455,13 @@ then
   echo "sudo apt-get update"
   echo "sudo apt-get install azure-functions-core-tools dotnet-sdk-2.1"
 else
-  if [[ -f ${FUNC_APP_LOCAL_DIRECTORY}/host.json ]]
+  if [[ -f ${ROOTDIR}/${FUNC_APP_LOCAL_DIRECTORY}/host.json ]]
   then
-    cd ${FUNC_APP_LOCAL_DIRECTORY}/
+    cd ${ROOTDIR}/${FUNC_APP_LOCAL_DIRECTORY}/
   fi
   if [[ ! -f host.json ]]
   then
-    echo "Can't find ${FUNC_APP_LOCAL_DIRECTORY} function app.  Run provision script from function app directory or parent"
+    echo "Can't find ${ROOTDIR}/${FUNC_APP_LOCAL_DIRECTORY} function app directory."
     exit -1
   fi
 
@@ -437,9 +481,112 @@ else
 
   echo "Pull application settings to local.settings.json"
   func azure functionapp fetch-app-settings ${FUNC_APP_NAME} > /dev/null
-
-  echo "Function app published.  To run locally stop server instance and start local:"
-  echo "  az functionapp stop --resource-group ${GROUP} --name ${FUNC_APP_NAME}"
-  echo "  func host start"
-
 fi
+
+# Verify / provision web app
+if [[ -f ${ROOTDIR}/${WEB_APP_LOCAL_DIRECTORY}/application.py ]]
+then
+  cd ${ROOTDIR}/${WEB_APP_LOCAL_DIRECTORY}/
+fi
+if [[ ! -f application.py ]]
+then
+  echo "Can't find ${ROOTDIR}/${WEB_APP_LOCAL_DIRECTORY} web app directory"
+  exit -1
+fi
+az webapp show -g ${GROUP} --name ${WEB_APP_NAME}  > /dev/null 2>&1
+if [[ $? -ne 0 ]]
+then
+  VALUE=$(az webapp list -g ${GROUP} --output json --query "[0].name" 2>/dev/null | tr -d '"')
+  if [[ $? -eq 0 && ! -z ${VALUE} ]]
+  then
+    WEB_APP_NAME=${VALUE}
+    WEB_APP_PLAN=$(basename $(az webapp show  -g apptest6 --name ScaleWebAppl7q5gmvb1k --query appServicePlanId | tr -d '"'))
+    echo "Updating existing web app name: ${WEB_APP_NAME} (service plan ${WEB_APP_PLAN})"
+  else
+    echo "az webapp up ${COMMON_ARGS} --plan ${WEB_APP_PLAN} --sku ${WEB_APP_SKU} --name ${WEB_APP_NAME}"
+  fi
+  #echo "az webapp up ${COMMON_ARGS} --plan ${WEB_APP_PLAN} --sku ${WEB_APP_SKU} --name ${WEB_APP_NAME}"
+  az webapp up ${COMMON_ARGS} --plan ${WEB_APP_PLAN} --sku ${WEB_APP_SKU} --name ${WEB_APP_NAME} > /dev/null
+  if [[ $? -ne 0 ]]
+  then
+    exit -1
+  fi
+  echo ""
+else
+  WEB_APP_PLAN=$(basename $(az webapp show  -g apptest6 --name ScaleWebAppl7q5gmvb1k --query appServicePlanId | tr -d '"'))
+  echo "Updating existing web app name: ${WEB_APP_NAME} (service plan ${WEB_APP_PLAN})"
+  #echo "az webapp up ${COMMON_ARGS} --plan ${WEB_APP_PLAN} --sku ${WEB_APP_SKU} --name ${WEB_APP_NAME} > /dev/null"
+  az webapp up ${COMMON_ARGS} --plan ${WEB_APP_PLAN} --sku ${WEB_APP_SKU} --name ${WEB_APP_NAME} > /dev/null
+fi
+WEB_APP_URL="http://$(az webapp show -g apptest6 --name ScaleWebAppl7q5gmvb1k --output json --query enabledHostNames[0] | tr -d '"')"
+az webapp start --resource-group ${GROUP} --name ${WEB_APP_NAME} > /dev/null 2>&1
+if [[ $? -ne 0 ]]
+then
+  exit -1
+fi
+
+# Configure Application Insights key from function app for web app:
+echo "Update web app Application Insights Key"
+#echo "az webapp config appsettings set --resource-group ${GROUP} --name ${WEB_APP_NAME} --settings \"APPINSIGHTS_INSTRUMENTATIONKEY=${AI_KEY}\""
+az webapp config appsettings set --resource-group ${GROUP} --name ${WEB_APP_NAME} --settings "APPINSIGHTS_INSTRUMENTATIONKEY=${AI_KEY}" > /dev/null
+if [[ $? -ne 0 ]]
+then
+  exit -1
+fi
+
+# Configure connections strings in Web App Settings
+echo "Update web app table connection string"
+#echo "az webapp config appsettings set --resource-group ${GROUP} --name ${WEB_APP_NAME} --settings \"AzureTableConnectionString=DefaultEndpointsProtocol=https;AccountName=${STORAGE_ACCT_NAME};AccountKey=${STORAGE_ACCT_KEY};EndpointSuffix=core.windows.net\""
+az webapp config appsettings set --resource-group ${GROUP} --name ${WEB_APP_NAME} --settings "AzureTableConnectionString=DefaultEndpointsProtocol=https;AccountName=${STORAGE_ACCT_NAME};AccountKey=${STORAGE_ACCT_KEY};EndpointSuffix=core.windows.net" > /dev/null
+if [[ $? -ne 0 ]]
+then
+  exit -1
+fi
+
+echo "Update web app configuration table name"
+#echo "az webapp config appsettings set --resource-group ${GROUP} --name ${WEB_APP_NAME} --settings \"ConfigurationTableName=${TABLE_NAME_CONFIG}\""
+az webapp config appsettings set --resource-group ${GROUP} --name ${WEB_APP_NAME} --settings "ConfigurationTableName=${TABLE_NAME_CONFIG}" > /dev/null
+if [[ $? -ne 0 ]]
+then
+  exit -1
+fi
+
+echo "Update web app historical data table name"
+echo "az webapp config appsettings set --resource-group ${GROUP} --name ${WEB_APP_NAME} --settings \"HistoricalDataTableName=${TABLE_NAME_HISTORY}\""
+az webapp config appsettings set --resource-group ${GROUP} --name ${WEB_APP_NAME} --settings "HistoricalDataTableName=${TABLE_NAME_HISTORY}" > /dev/null
+if [[ $? -ne 0 ]]
+then
+  exit -1
+fi
+
+# TBD:
+# Upload html/ directory
+#echo "az storage blob upload-batch -s \"${STORAGE_HTML_LOCALDIR}\" -d '$web' --account-name ${STORAGE_ACCT_NAME}"
+#az storage blob upload-batch -s "${STORAGE_HTML_LOCALDIR}" -d '$web' --account-name ${STORAGE_ACCT_NAME} > /dev/null 2>&1
+#if [[ $? -ne 0 ]]
+#then
+#   echo "batch upload failed"
+##  exit -1
+#fi
+
+echo "Apps published.  To run locally instead:"
+echo "  python3 -m venv venv"
+echo "  source venv/bin/activate"
+echo ""
+echo "# Web App:"
+echo "  cd ${WEB_APP_LOCAL_DIRECTORY}"
+echo "  az webapp stop --resource-group ${GROUP} --name ${WEB_APP_NAME}"
+echo "  pip install --upgrade pip wheel"
+echo "  pip install -r requirements.txt"
+echo "  export AzureTableConnectionString=\"DefaultEndpointsProtocol=https;AccountName=${STORAGE_ACCT_NAME};AccountKey=${STORAGE_ACCT_KEY};EndpointSuffix=core.windows.net\""
+echo "  export ConfigurationTableName=\"${TABLE_NAME_CONFIG}\""
+echo "  export HistoricalDataTableName=\"${TABLE_NAME_HISTORY}\""
+echo "  export APPINSIGHTS_INSTRUMENTATIONKEY=\"${AI_KEY}\""
+echo "  FLASK_ENV=development FLASK_APP=application.py flask run"
+echo ""
+echo "# Function App:"
+echo "  cd ${FUNC_APP_LOCAL_DIRECTORY}"
+echo "  az functionapp stop --resource-group ${GROUP} --name ${FUNC_APP_NAME}"
+echo "  pip install --upgrade pip wheel"
+echo "  pip install -r requirements.txt"
+echo "  func host start"
