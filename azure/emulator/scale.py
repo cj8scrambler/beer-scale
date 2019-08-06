@@ -16,8 +16,16 @@ MESSAGE_TIMEOUT = 10000
 FULL_KEG_WEIGHT = 20000
 REPORT_PERIOD_S = 300
 
+#Parse the device id
+dbEnvVars = {}
+for each in CONNECTION_STRING.split(';'):
+        data=each.split('=', maxsplit=1)
+        if (len(data) == 2):
+                dbEnvVars[data[0]] = data[1]
+DEVICE_ID=dbEnvVars['DeviceId']
+
 # JSON message to send to IoT Hub.
-MSG_TXT = "{\"timestamp\": %d, \"tap\": \"Tap %d\", \"temperature\": %.1f,\"weight\": %d}"
+MSG_TXT = "{\"timestamp\": %d, \"deviceid\": \"%s\", \"scale\": %d, \"temperature\": %.1f,\"weight\": %d}"
 
 def send_confirmation_callback(message, result, user_context):
     print ( "IoT Hub responded to message with status: %s" % (result) )
@@ -28,7 +36,7 @@ def iothub_client_init():
 
 def iothub_client_telemetry_sample_run():
     # list of taps with starting keg weights
-    taplist = [FULL_KEG_WEIGHT, FULL_KEG_WEIGHT];
+    taplist = [FULL_KEG_WEIGHT, FULL_KEG_WEIGHT, FULL_KEG_WEIGHT/2, FULL_KEG_WEIGHT/5];
     try:
         client = iothub_client_init()
         while True:
@@ -42,7 +50,7 @@ def iothub_client_telemetry_sample_run():
 
                 temperature = random.random() * 12  # 0-12 C
                 msg_txt_formatted = MSG_TXT % \
-                   (time.time(), tap+1, temperature, taplist[tap])
+                   (time.time(), DEVICE_ID, tap, temperature, taplist[tap])
                 message = IoTHubMessage(msg_txt_formatted)
 
                 prop_map = message.properties()
