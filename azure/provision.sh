@@ -69,6 +69,9 @@ RANDO=$(head /dev/urandom | tr -dc a-z0-9 | head -c 10 ; echo '')
   ROUTE_NAME="Ioth2EhRoute"
   IOTH_EH_ENDPOINT_NAME="EvHubEndpoint"
 
+  # Front end Angular app
+  FRONTEND_LOCAL_DIRECTORY="tapsFrontEnd"
+
 function usage(){
   cat << EOM
 Usage: $(basename $0) [-g resource-group-name] [-i iot-hub-name] [-l location] [-n # iot devices] [ -s storage acct name] [-a function app name] [-L function app location]
@@ -447,13 +450,8 @@ fi
 func > /dev/null 2>&1
 if [[ $? -ne 0 ]]
 then
-  echo "Cannot install function app without azure 'func' utility.  Can be installed with"
-  echo ""
-  echo "curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg"
-  echo "sudo mv microsoft.gpg /etc/apt/trusted.gpg.d/microsoft.gpg"
-  echo "sudo sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/microsoft-ubuntu-$(lsb_release -cs)-prod $(lsb_release -cs) main" > /etc/apt/sources.list.d/dotnetdev.list'"
-  echo "sudo apt-get update"
-  echo "sudo apt-get install azure-functions-core-tools dotnet-sdk-2.1"
+  echo "Cannot install function app without azure 'func' utility.  Install instructions:"
+  echo "  https://github.com/Azure/azure-functions-core-tools"
 else
   if [[ -f ${ROOTDIR}/${FUNC_APP_LOCAL_DIRECTORY}/host.json ]]
   then
@@ -552,23 +550,53 @@ then
 fi
 
 echo "Update web app historical data table name"
-echo "az webapp config appsettings set --resource-group ${GROUP} --name ${WEB_APP_NAME} --settings \"HistoricalDataTableName=${TABLE_NAME_HISTORY}\""
+#echo "az webapp config appsettings set --resource-group ${GROUP} --name ${WEB_APP_NAME} --settings \"HistoricalDataTableName=${TABLE_NAME_HISTORY}\""
 az webapp config appsettings set --resource-group ${GROUP} --name ${WEB_APP_NAME} --settings "HistoricalDataTableName=${TABLE_NAME_HISTORY}" > /dev/null
 if [[ $? -ne 0 ]]
 then
   exit -1
 fi
 
-# TBD:
-# Upload html/ directory
-#echo "az storage blob upload-batch -s \"${STORAGE_HTML_LOCALDIR}\" -d '$web' --account-name ${STORAGE_ACCT_NAME}"
-#az storage blob upload-batch -s "${STORAGE_HTML_LOCALDIR}" -d '$web' --account-name ${STORAGE_ACCT_NAME} > /dev/null 2>&1
-#if [[ $? -ne 0 ]]
-#then
-#   echo "batch upload failed"
-##  exit -1
-#fi
+# Configure/deploy the tapFrontEnd web page:
+ng version >/dev/null 2>&1
+if [[ $? -ne 0 ]]
+then
+  echo "Need to install Angular CLI tools to deply web front end app"
+  echo "  https://angular.io/cli"
+  exit -1
+fi
+echo "Configure / build / deploy frontend app"
+cd ${ROOTDIR}/${FRONTEND_LOCAL_DIRECTORY} && \
+sed --in-place "s#NEED_TO_CONFIGURE_API_URL_IN_ENVIRONMENT.TS_FILE#${WEB_APP_URL}#g" src/environments/environment.ts && \
+sed --in-place "s#NEED_TO_CONFIGURE_API_URL_IN_ENVIRONMENT.TS_FILE#${WEB_APP_URL}#g" src/environments/environment.prod.ts && \
+ng build --prod && \
+az storage blob upload-batch -s "dist/tapsFrontEnd/" -d '$web' --account-name ${STORAGE_ACCT_NAME} > /dev/null 2>&1 
+if [[ $? -ne 0 ]]
+then
+  exit -1
+fi
+FRONTEND_APP_URL=$(az storage account show --name ${STORAGE_ACCT_NAME} --query "primaryEndpoints.web" | tr -d '"')
 
+# Make sure there is a CORS entry in the WebApp allowing query from our frontend:
+CORS_FOUND="false"
+for ENTRY in $(az webapp cors show -g ${GROUP} --name ${WEB_APP_NAME} --query "allowedOrigins" --output tsv)
+do
+  if [[ ${ENTRY} == ${FRONTEND_APP_URL} ]]
+  then
+    echo "Found match: ${ENTRY}"
+    CORS_FOUND="true"
+  else
+    echo "not a match: ${ENTRY}"
+  fi
+done
+if [[ ${CORS_FOUND} == "false" ]]
+then
+    echo "Adding CORS entry to WebApp for frontend"
+    echo "az webapp cors add -g ${GROUP} --name ${WEB_APP_NAME} --allowed-origins \"${FRONTEND_APP_URL}\""
+    az webapp cors add -g ${GROUP} --name ${WEB_APP_NAME} --allowed-origins "${FRONTEND_APP_URL}"
+fi
+
+echo ""
 echo "Apps published.  To run locally instead:"
 echo "  python3 -m venv venv"
 echo "  source venv/bin/activate"
@@ -590,3 +618,13 @@ echo "  az functionapp stop --resource-group ${GROUP} --name ${FUNC_APP_NAME}"
 echo "  pip install --upgrade pip wheel"
 echo "  pip install -r requirements.txt"
 echo "  func host start"
+echo ""
+echo "# Front End App:"
+echo "  cd ${FRONTEND_LOCAL_DIRECTORY}"
+echo "  # Optionally update environments/environment.ts to point to a local API URL"
+echo "  ng serve"
+echo ""
+echo ""
+echo "Front end app is up and running at:"
+echo "${FRONTEND_APP_URL}"
+echo ""
