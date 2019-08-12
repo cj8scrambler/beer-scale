@@ -24,7 +24,7 @@
 #   create new resource with the name supplied on command line
 #   create new resource with default name
 
-RANDO=$(head /dev/urandom | tr -dc a-z0-9 | head -c 10 ; echo '')
+RANDO=$(head /dev/urandom | LC_CTYPE=C tr -dc a-z0-9 | head -c 10 ; echo '')
 
 # Defaults that can be overriden on command line:
   GROUP=scale
@@ -40,6 +40,7 @@ RANDO=$(head /dev/urandom | tr -dc a-z0-9 | head -c 10 ; echo '')
 
   # IOT Hub
   IOTH_SKU="F1"   # Free iothub is limited to 8000 messages/day
+# IOTH_SKU="B1"   # Mutilple IOTHub allowed at B1 or higher
 
   # Event Hub
   EH_NAMESPACE="ScaleEvents${RANDO}"
@@ -55,7 +56,8 @@ RANDO=$(head /dev/urandom | tr -dc a-z0-9 | head -c 10 ; echo '')
   # Web App (provide REST API for data)
   WEB_APP_NAME="ScaleWebApp${RANDO}"
   WEB_APP_PLAN="ScaleWebAppPlan${RANDO}"
-  WEB_APP_SKU="F1"
+  WEB_APP_SKU="F1"  # Only 1 free app service plan allowed
+# WEB_APP_SKU="B1"   # Multiple app service plans allowed at B+
   WEB_APP_LOCAL_DIRECTORY="scaleAPI"
 
   # Storage
@@ -130,7 +132,8 @@ az group list > /dev/null 2>&1
 if [[ $? -ne 0 ]]
 then
   echo "Error: Make sure azure cli is installed and authenticated"
-  echo "https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-apt"
+  echo "  Install: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli"
+  echo "  Authenicate: az login"
   exit -1
 fi
 
@@ -295,7 +298,8 @@ else
 fi
 
 # Enable HTML hosting
-az storage blob service-properties update --account-name ${STORAGE_ACCT_NAME} --static-website --index-document index.html > /dev/null
+# error page set to index.html so that Angular handles all routing
+az storage blob service-properties update --account-name ${STORAGE_ACCT_NAME} --static-website --404-document index.html --index-document index.html > /dev/null
 if [[ $? -ne 0 ]]
 then
   exit -1
@@ -464,14 +468,11 @@ else
   fi
 
   echo "Start function app"
+  # might fail if this is a first time install; so ignore failure
   az functionapp start --resource-group ${GROUP} --name ${FUNC_APP_NAME} > /dev/null 
-  if [[ $? -ne 0 ]]
-  then
-    exit -1
-  fi
 
   echo "Publish function app"
-  func azure functionapp publish ${FUNC_APP_NAME} --build-native-deps > /dev/null
+  func azure functionapp publish ${FUNC_APP_NAME} --build-native-deps  --python > /dev/null
   if [[ $? -ne 0 ]]
   then
     exit -1
@@ -498,25 +499,26 @@ then
   if [[ $? -eq 0 && ! -z ${VALUE} ]]
   then
     WEB_APP_NAME=${VALUE}
-    WEB_APP_PLAN=$(basename $(az webapp show  -g apptest6 --name ScaleWebAppl7q5gmvb1k --query appServicePlanId | tr -d '"'))
+    WEB_APP_PLAN=$(basename $(az webapp show  -g ${GROUP} --name ${WEB_APP_NAME} --query appServicePlanId | tr -d '"'))
     echo "Updating existing web app name: ${WEB_APP_NAME} (service plan ${WEB_APP_PLAN})"
   else
     echo "az webapp up ${COMMON_ARGS} --plan ${WEB_APP_PLAN} --sku ${WEB_APP_SKU} --name ${WEB_APP_NAME}"
   fi
   #echo "az webapp up ${COMMON_ARGS} --plan ${WEB_APP_PLAN} --sku ${WEB_APP_SKU} --name ${WEB_APP_NAME}"
-  az webapp up ${COMMON_ARGS} --plan ${WEB_APP_PLAN} --sku ${WEB_APP_SKU} --name ${WEB_APP_NAME} > /dev/null
+  az webapp up ${COMMON_ARGS} --plan ${WEB_APP_PLAN} --sku ${WEB_APP_SKU} --name ${WEB_APP_NAME}
   if [[ $? -ne 0 ]]
   then
     exit -1
   fi
   echo ""
 else
-  WEB_APP_PLAN=$(basename $(az webapp show  -g apptest6 --name ScaleWebAppl7q5gmvb1k --query appServicePlanId | tr -d '"'))
+  WEB_APP_PLAN=$(basename $(az webapp show  -g ${GROUP} --name ${WEB_APP_NAME} --query appServicePlanId | tr -d '"'))
   echo "Updating existing web app name: ${WEB_APP_NAME} (service plan ${WEB_APP_PLAN})"
   #echo "az webapp up ${COMMON_ARGS} --plan ${WEB_APP_PLAN} --sku ${WEB_APP_SKU} --name ${WEB_APP_NAME} > /dev/null"
   az webapp up ${COMMON_ARGS} --plan ${WEB_APP_PLAN} --sku ${WEB_APP_SKU} --name ${WEB_APP_NAME} > /dev/null
 fi
-WEB_APP_URL="http://$(az webapp show -g apptest6 --name ScaleWebAppl7q5gmvb1k --output json --query enabledHostNames[0] | tr -d '"')"
+WEB_APP_URL="http://$(az webapp show -g ${GROUP} --name ${WEB_APP_NAME} --output json --query enabledHostNames[0] | tr -d '"')"
+echo "az webapp start --resource-group ${GROUP} --name ${WEB_APP_NAME}"
 az webapp start --resource-group ${GROUP} --name ${WEB_APP_NAME} > /dev/null 2>&1
 if [[ $? -ne 0 ]]
 then
@@ -565,17 +567,46 @@ then
   echo "  https://angular.io/cli"
   exit -1
 fi
-echo "Configure / build / deploy frontend app"
+echo "Configure frontend app"
 cd ${ROOTDIR}/${FRONTEND_LOCAL_DIRECTORY} && \
-sed --in-place "s#NEED_TO_CONFIGURE_API_URL_IN_ENVIRONMENT.TS_FILE#${WEB_APP_URL}#g" src/environments/environment.ts && \
-sed --in-place "s#NEED_TO_CONFIGURE_API_URL_IN_ENVIRONMENT.TS_FILE#${WEB_APP_URL}#g" src/environments/environment.prod.ts && \
+sed -i ".tmp" "s#NEED_TO_CONFIGURE_API_URL_IN_ENVIRONMENT.TS_FILE#${WEB_APP_URL}#g" src/environments/environment.ts && \
+sed -i ".tmp" "s#NEED_TO_CONFIGURE_API_URL_IN_ENVIRONMENT.TS_FILE#${WEB_APP_URL}#g" src/environments/environment.prod.ts
+if [[ $? -ne 0 ]]
+then
+  exit -1
+fi
+
+echo "Build / deploy frontend app"
+npm list -g @angular/cli >/dev/null 2>&1
+if [[ $? -ne 0 ]]
+then
+  npm list @angular/cli >/dev/null 2>&1
+  if [[ $? -ne 0 ]]
+  then
+    echo "npm install @angular/cli"
+    npm install @angular/cli
+    if [[ $? -ne 0 ]]
+    then
+      exit -1
+    else
+      echo "Installed Angular locally"
+    fi
+  else
+    echo "Found local install of Angular"
+  fi
+else
+  echo "Found global install of Angular"
+fi
 ng build --prod && \
+az storage blob delete-batch --account-name ${STORAGE_ACCT_NAME} --source '$web' && \
 az storage blob upload-batch -s "dist/tapsFrontEnd/" -d '$web' --account-name ${STORAGE_ACCT_NAME} > /dev/null 2>&1 
 if [[ $? -ne 0 ]]
 then
   exit -1
 fi
 FRONTEND_APP_URL=$(az storage account show --name ${STORAGE_ACCT_NAME} --query "primaryEndpoints.web" | tr -d '"')
+# Can't have trailing slash for CORS configuration
+FRONTEND_APP_URL=${FRONTEND_APP_URL%/}
 
 # Make sure there is a CORS entry in the WebApp allowing query from our frontend:
 CORS_FOUND="false"
@@ -583,10 +614,7 @@ for ENTRY in $(az webapp cors show -g ${GROUP} --name ${WEB_APP_NAME} --query "a
 do
   if [[ ${ENTRY} == ${FRONTEND_APP_URL} ]]
   then
-    echo "Found match: ${ENTRY}"
     CORS_FOUND="true"
-  else
-    echo "not a match: ${ENTRY}"
   fi
 done
 if [[ ${CORS_FOUND} == "false" ]]
@@ -597,34 +625,35 @@ then
 fi
 
 echo ""
+echo ""
 echo "Apps published.  To run locally instead:"
 echo "  python3 -m venv venv"
 echo "  source venv/bin/activate"
 echo ""
-echo "# Web App:"
-echo "  cd ${WEB_APP_LOCAL_DIRECTORY}"
-echo "  az webapp stop --resource-group ${GROUP} --name ${WEB_APP_NAME}"
-echo "  pip install --upgrade pip wheel"
-echo "  pip install -r requirements.txt"
-echo "  export AzureTableConnectionString=\"DefaultEndpointsProtocol=https;AccountName=${STORAGE_ACCT_NAME};AccountKey=${STORAGE_ACCT_KEY};EndpointSuffix=core.windows.net\""
-echo "  export ConfigurationTableName=\"${TABLE_NAME_CONFIG}\""
-echo "  export HistoricalDataTableName=\"${TABLE_NAME_HISTORY}\""
-echo "  export APPINSIGHTS_INSTRUMENTATIONKEY=\"${AI_KEY}\""
-echo "  FLASK_ENV=development FLASK_APP=application.py flask run"
+echo "  # Web App:"
+echo "    cd ${WEB_APP_LOCAL_DIRECTORY}"
+echo "    az webapp stop --resource-group ${GROUP} --name ${WEB_APP_NAME}"
+echo "    pip install --upgrade pip wheel"
+echo "    pip install -r requirements.txt"
+echo "    export AzureTableConnectionString=\"DefaultEndpointsProtocol=https;AccountName=${STORAGE_ACCT_NAME};AccountKey=${STORAGE_ACCT_KEY};EndpointSuffix=core.windows.net\""
+echo "    export ConfigurationTableName=\"${TABLE_NAME_CONFIG}\""
+echo "    export HistoricalDataTableName=\"${TABLE_NAME_HISTORY}\""
+echo "    export APPINSIGHTS_INSTRUMENTATIONKEY=\"${AI_KEY}\""
+echo "    FLASK_ENV=development FLASK_APP=application.py flask run"
 echo ""
-echo "# Function App:"
-echo "  cd ${FUNC_APP_LOCAL_DIRECTORY}"
-echo "  az functionapp stop --resource-group ${GROUP} --name ${FUNC_APP_NAME}"
-echo "  pip install --upgrade pip wheel"
-echo "  pip install -r requirements.txt"
-echo "  func host start"
+echo "  # Function App:"
+echo "    cd ${FUNC_APP_LOCAL_DIRECTORY}"
+echo "    az functionapp stop --resource-group ${GROUP} --name ${FUNC_APP_NAME}"
+echo "    pip install --upgrade pip wheel"
+echo "    pip install -r requirements.txt"
+echo "    func host start"
 echo ""
-echo "# Front End App:"
-echo "  cd ${FRONTEND_LOCAL_DIRECTORY}"
-echo "  # Optionally update environments/environment.ts to point to a local API URL"
-echo "  ng serve"
+echo "  # Front End App:"
+echo "    cd ${FRONTEND_LOCAL_DIRECTORY}"
+echo "    # Optionally update environments/environment.ts to point to a local API URL"
+echo "    ng serve"
 echo ""
 echo ""
 echo "Front end app is up and running at:"
-echo "${FRONTEND_APP_URL}"
+echo "  ${FRONTEND_APP_URL}"
 echo ""
