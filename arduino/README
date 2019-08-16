@@ -1,23 +1,43 @@
 Arduino IDE Setup:
 
   File->Preferences->Additional Boards Manager URLs: 
-  *  https://adafruit.github.io/arduino-board-index/package_adafruit_index.json
+  *  https://arduino.esp8266.com/stable/package_esp8266com_index.json
+  *  Be sure to install v2.4.2 to avoid issue: https://github.com/esp8266/Arduino/issues/5787
 
-  Install Libraries: (Sketch->Inclue Library->Add .ZIP Library...)
-  *  Q2HX711: https://github.com/queuetue/Q2-HX711-Arduino-Library/archive/master.zip
-  *  Running Median: https://github.com/RobTillaart/Arduino/archive/master.zip
-  *  Low Power: https://github.com/rocketscream/Low-Power/archive/master.zip
-  *  Adafruite BLE: https://github.com/adafruit/Adafruit_BluefruitLE_nRF51/archive/master.zip
+  Install Libraries:
+  *  AzureIoTHub
+  *  AzureIoTUtility
+  *  AzureIoTProtocol_MQTT
+  *  ArduinoJson
 
 -------------------------------------------------------------
-Attempts to build from command line (currently not working):
 
-  * Install 0.3.1 (0.3.2 is broke) arduino-cli tool: https://github.com/arduino/arduino-cli#getting-started
-  * create /usr/local/bin/.cli-config.yml  with:
-board_manager:
-  additional_urls:
-    - https://adafruit.github.io/arduino-board-index/package_adafruit_index.json
+Or build / upload directly from the command line:
 
-  * arduino-cli core update-index
-  * arduino-cli core install adafruit:avr
-  * Verify with:
+  Install arduino-cli:
+  *  curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=~/bin sh
+
+  Configure arduino-cli:
+  *  arduino-cli config init
+  *  edit ~/.arduino15/arduino-cli.yaml and replace the board_manager line with:
+     board_manager:
+       additional_urls:
+         - http://arduino.esp8266.com/stable/package_esp8266com_index.json
+  *  arduino-cli core update-index
+
+  Install dependencies:
+  *  arduino-cli core install esp8266:esp8266@2.4.2
+  *  arduino-cli lib install AzureIoTHub@1.0.45
+  *  arduino-cli lib install AzureIoTUtility@1.0.45
+  *  arduino-cli lib install AzureIoTProtocol_MQTT@1.0.45
+  *  arduino-cli lib install ArduinoJson@6.10.0
+
+  Build
+  *  make 
+     OR
+  *  arduino-cli compile --fqbn esp8266:esp8266:huzzah
+
+  Upload 
+  *  make upload        # set serial port path in Makefile
+     OR
+  *  arduino-cli upload --fqbn esp8266:esp8266:huzzah -p /dev/[serial port name]
