@@ -13,6 +13,8 @@
 #define NUM_CHAN_PER_ADC               2
 #define NUM_SCALES                     (NUM_ADC*NUM_CHAN_PER_ADC)
 #define I2C_MUX_ADDR                   0x70   // 7-bit address of I2C Mux
+#define I2C_SDA_PIN                     4
+#define I2C_SCL_PIN                     5
 #define CONFIG_SW_GPIO                 14     // Causes device to go into config mode when held low at reset
 #define AVDD_EN_GPIO                   15     // Enable line for AVDD
 
@@ -45,6 +47,7 @@ typedef struct config {
   char pass[PASS_LEN];
   char connection[CONNECTION_STRING_LEN];
   char deviceid[DEVICEID_MAX_LEN];
+  uint32_t refweight;
   scaleConfig scaledata[NUM_SCALES];
 } systemConfig;
 

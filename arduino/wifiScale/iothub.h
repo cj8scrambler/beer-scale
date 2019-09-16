@@ -8,7 +8,7 @@ class IotHub
 {
   public:
     IotHub();
-    void init(const char *connection_string, const char *device_name);
+    bool init(const char *connection_string, const char *device_name);
     void sendMessage(char *buffer);
     bool workPending();
     void doWork();

@@ -1,3 +1,5 @@
+#include <Wire.h>
+
 #include "common.h"
 #include "scale.h"
 
@@ -5,10 +7,11 @@
 #define ADC_VOLTAGE                    3.3
 #define MAX_LINE_SIZE                   80
 
-Scale::Scale(NAU7802 adc, int channel, int scalenum)
+Scale::Scale(NAU7802 *adc, int channel, int scalenum)
 {
   /* hardware interface */
   _adc = adc;
+  /* _chan is 0 based */
   _chan = channel;
 
   /* configuration */
@@ -17,41 +20,60 @@ Scale::Scale(NAU7802 adc, int channel, int scalenum)
 
   /* state */
   _weight_change = false;
+  _lastcalbegintime = 0;
 
   /* results */
   _weight_g = 0;
-
 }
 
-void Scale::begin(scaleConfig *config)
+bool Scale::begin(scaleConfig *config)
 {
+  if (!config)
+    return false;
+
   /* pointer into the EEPROM backed config/state data */
   _config = config;
-
-#ifndef SIMULATED
-  _adc.begin(SDA, SCL, NAU7802_I2CADDR);
-  _adc.extAvcc(ADC_VOLTAGE);
-  _adc.rate010sps();
-#endif
-
-  if (_config->enabled && (_config->slope == 0.0))
-  {
-    Serial.printf("\r\nForcing recalibration on scale-%d (invalid slope)\r\n", _scalenum); 
-    calibrate(REFERENCE_CAL_WEIGHT_GRAMS);
-  }
 
 #ifdef DEBUG
   Serial.printf("Create scale-%d %s (%0.2f / %d)\r\n", _scalenum,
                  _config->enabled?"enabled":"disabled",
                  _config->slope, _config->offset);
 #endif
+
+#ifndef SIMULATED
+  if (_config->enabled) {
+    if (_adc->begin(Wire, false) == false) {
+      Serial.printf("Error: Scale-%d could not talk to ADC; disabling\r\n", _scalenum);
+      _config->enabled = false;
+      return false;
+    }
+
+    if (!Scale::_initialize())
+    {
+      Serial.printf("Error: Scale-%d couldn't initialize ADC; disabling\r\n", _scalenum);
+      _config->enabled = false;
+      return false;
+    }
+
+    _adc->beginCalibrateAFE();
+    _lastcalbegintime = millis();
+  }
+#endif
+
+  return true;
 }
 
-int32_t Scale::datapoint()
+bool Scale::datapoint()
 {
   int32_t median;
+
+  if (!_config || !(_config->enabled))
+    return false;
+
+  waitAfterCal(TIME_WAIT_AFTER_CAL_MS);
+
 #ifdef SIMULATED
-  /* convert the last sampel back to A/D value then randomize */
+  /* convert the last sample back to A/D value then randomize */
   median = (_config->last_weight * _config->slope) + _config->offset;
   median += random(-400,400);
 #else
@@ -61,9 +83,10 @@ int32_t Scale::datapoint()
   for (int i = 0; i < MEDIAN_FILTER_SIZE; i++)
   {
     int32_t val = _read_adc();
+    ESP.wdtFeed(); /* ADC can take a while; feed the dog */
     median = samples->AddValue(val);
 #ifdef DEBUG
-    Serial.printf("  datapoint: raw: %ld  new median: %ld\r\n", val, median);
+    Serial.printf("%ld - datapoint: raw: %ld  new median: %ld (time_delta: %ld)\r\n", millis(), val, median, millis() - _lastcalbegintime);
 #endif
   }
 #endif
@@ -107,7 +130,20 @@ int32_t Scale::datapoint()
 
 bool Scale::enabled()
 {
-  return _config->enabled;
+  if (_config)
+    return _config->enabled;
+  else
+    return false;
+}
+
+/* wait till scale is ready; default timeout is 0 (no timeout) */
+bool Scale::waitForReady(uint32_t timeout_ms)
+{
+#ifdef SIMULATED
+  return true;
+#else
+  return _adc->waitForCalibrateAFE(timeout_ms);
+#endif
 }
 
 int32_t Scale::weight()
@@ -133,6 +169,21 @@ void Scale::calibrate(uint16_t reference_grams)
   char buff[MAX_LINE_SIZE];
 
   MedianFilter<int32_t> *tare_samples = NULL;
+
+#ifndef SIMULATED
+  if (_adc->calAFEStatus() == NAU7802_CAL_IN_PROGRESS)
+  {
+    Serial.printf("Waiting for scale-%d AFE calibration to complete\r\n", _scalenum);
+    _adc->waitForCalibrateAFE();
+  }
+
+  if (_adc->calAFEStatus() == NAU7802_CAL_FAILURE)
+  {
+    Serial.printf("Error: scale-%d AFE calibration failed; disabling scale\r\n", _scalenum);
+    _config->enabled = false;
+    return;
+  }
+#endif
 
   tare_samples = new MedianFilter<int32_t>(CALIBRATION_MEDIAN_FILTER_SIZE);
  
@@ -227,29 +278,28 @@ bool Scale::recentWeightChange(void)
   return _weight_change;
 }
 
+/* Make sure that at least time_ms has elapsed since calibration (for readings to stabalize) */
+void Scale::waitAfterCal(uint32_t time_ms)
+{
+  while ((millis() - _lastcalbegintime) < time_ms)
+    delay(5);
+}
+
 int32_t Scale::_read_adc(void)
 {
   int i;
 
-  switch(_chan)
-  {
-    case 0:
-      _adc.selectCh1();
-      break;
-    case 1:
-      _adc.selectCh2();
-      break;
-    default:
-      Serial.print(F("Unsupported channel: "));
-      Serial.println(_chan);
-      return 0;
-      break;
-  }
-
-  for (i = 0; i < DUMMY_ADC_READS; i++)
-  {  
-     _adc.readADC();
-  }
-
-  return _adc.readADC();
+  return _adc->getReading();
 }
+
+/* Similar to NAU7802 begin(), but kicks off async AFE calibration instead of synchronous */
+bool Scale::_initialize()
+{
+    return (_adc->reset() && _adc->powerUp() && \
+            _adc->setLDO(NAU7802_LDO_3V3) && \
+            _adc->setGain(NAU7802_GAIN_128) && \
+            _adc->setSampleRate(NAU7802_SPS_20) && \
+            _adc->setChannel(_chan) && \
+            _adc->setRegister(NAU7802_ADC, 0x30));
+}
+

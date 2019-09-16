@@ -4,6 +4,7 @@
 #include "common.h"
 
 #define MAX_LINE_SIZE  CONNECTION_STRING_LEN
+#define BLANK_EEPROM_BYTE         0xff
 
 systemConfig *g_config;               // Scale settings saved/retrieved from EEPROM
 
@@ -24,6 +25,7 @@ void dumpConfig(void)
   Serial.printf("pass: [%s] (offset %d)\r\n", g_config->pass, (((uint8_t *)&(g_config->pass))-ptr));
   Serial.printf("connection: [%s] (offset %d)\r\n", g_config->connection, (((uint8_t *)&(g_config->connection))-ptr));
   Serial.printf("deviceid: [%s] (offset %d)\r\n", g_config->deviceid, (((uint8_t *)&(g_config->deviceid))-ptr));
+  Serial.printf("refweight: [%d] (offset %d)\r\n", g_config->refweight, (((uint8_t *)&(g_config->refweight))-ptr));
   for(int adc_offset = 0; adc_offset < NUM_ADC; adc_offset++)
   {
     for(int chan = 0; chan < NUM_CHAN_PER_ADC; chan++)
@@ -49,11 +51,33 @@ void dumpConfig(void)
 }
 #endif
 
-void initConfig()
+/* returns true if a scale needs calibration */
+bool initConfig()
 {
   EEPROM.begin(sizeof(systemConfig));
 
   g_config = (systemConfig *)EEPROM.getDataPtr();
+
+  /* Make sure the strings are sane */
+  if (g_config->ssid[0] == BLANK_EEPROM_BYTE)
+    g_config->ssid[0] = '\0';
+  else
+    g_config->ssid[SSID_LEN-1] = '\0';
+
+  if (g_config->pass[0] == BLANK_EEPROM_BYTE)
+    g_config->pass[0] = '\0';
+  else
+    g_config->pass[PASS_LEN-1] = '\0';
+
+  if (g_config->connection[0] == BLANK_EEPROM_BYTE)
+    g_config->connection[0] = '\0';
+  else
+    g_config->connection[CONNECTION_STRING_LEN-1] = '\0';
+
+  if (g_config->deviceid[0] == BLANK_EEPROM_BYTE)
+    g_config->deviceid[0] = '\0';
+  else
+    g_config->deviceid[DEVICEID_MAX_LEN-1] = '\0';
 
 #ifdef DEBUG
   Serial.printf("Loaded %d bytes of data from EEPROM\r\n", sizeof(systemConfig));
@@ -68,15 +92,19 @@ void initConfig()
 #ifdef DEBUG
   Serial.println("Forcing RECONFIG based on missing data");
 #endif
-    reconfig();
+    return reconfig();
   }
+
+  return false;
 }
 
-void reconfig()
+/* returns true if a scale needs calibration */
+bool reconfig()
 {
   int i;
   char buff[MAX_LINE_SIZE];
   int adc_offset, chan;
+  bool cal_required = false;
 
   snprintf(buff, MAX_LINE_SIZE, "SSID [%s]: ", g_config->ssid);
   readFromSerial(buff, buff, SSID_LEN, 0, false);
@@ -85,7 +113,6 @@ void reconfig()
     strcpy(g_config->ssid, buff);
   }
 
-  snprintf(buff, MAX_LINE_SIZE, "Password [%s] :", g_config->ssid);
   strcpy(buff, "Password [");
   for (i = 0; i < strlen(g_config->pass); i++)
   {
@@ -93,8 +120,16 @@ void reconfig()
   }
   strcat(buff, "]: ");
   readFromSerial(buff, buff, PASS_LEN, 0, true);
-  if (strlen(buff)) {
+  if (strlen(buff))
+  {
     strcpy(g_config->pass, buff);
+  }
+
+  snprintf(buff, MAX_LINE_SIZE, "Calibration Reference Weight (g) [%lu]:", g_config->refweight);
+  readFromSerial(buff, buff, 8, 0, false);
+  if (strlen(buff))
+  {
+    g_config->refweight = atoi(buff);
   }
 
   Serial.println("Azure IOT device connection string can be obtained from Azure portal at:");
@@ -160,7 +195,8 @@ void reconfig()
         g_config->scaledata[scalenum].enabled = true;
         if (g_config->scaledata[scalenum].slope == 0.0)
         {
-            Serial.printf("Calibration required on scale #%d\r\n", scalenum);
+          Serial.printf("Calibration required on scale #%d\r\n", scalenum);
+          cal_required = true;
         } else {
           sprintf(buff, "Recalibrate Scale #%d [ADC-%d / Channel %d]? [y/N] ",
                   scalenum, adc_offset, chan);
@@ -169,11 +205,13 @@ void reconfig()
           {
             /* setting slope to 0.0 (invalid) forces recal when instantiated */
             g_config->scaledata[scalenum].slope = 0.0;
+            cal_required = true;
           }
         }
       }
     }
   }
+  return cal_required;
 }
 
 void saveSettings()

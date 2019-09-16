@@ -9,6 +9,8 @@ Arduino IDE Setup:
   *  AzureIoTUtility
   *  AzureIoTProtocol_MQTT
   *  ArduinoJson
+  *  SparkFun Qwiic Scale NAU7802 Arduino Library
+     Be sure to install v1.0.3 or later to get my non-blocking calibration changes
 
 -------------------------------------------------------------
 
@@ -27,17 +29,14 @@ Or build / upload directly from the command line:
 
   Install dependencies:
   *  arduino-cli core install esp8266:esp8266@2.4.2
-  *  arduino-cli lib install AzureIoTHub@1.0.45
-  *  arduino-cli lib install AzureIoTUtility@1.0.45
-  *  arduino-cli lib install AzureIoTProtocol_MQTT@1.0.45
-  *  arduino-cli lib install ArduinoJson@6.10.0
+  *  arduino-cli lib install AzureIoTHub
+  *  arduino-cli lib install AzureIoTUtility
+  *  arduino-cli lib install AzureIoTProtocol_MQTT
+  *  arduino-cli lib install ArduinoJson
+  *  arduino-cli lib install "SparkFun Qwiic Scale NAU7802 Arduino Library"
 
   Build
   *  make 
-     OR
-  *  arduino-cli compile --fqbn esp8266:esp8266:huzzah
 
   Upload 
   *  make upload        # set serial port path in Makefile
-     OR
-  *  arduino-cli upload --fqbn esp8266:esp8266:huzzah -p /dev/[serial port name]

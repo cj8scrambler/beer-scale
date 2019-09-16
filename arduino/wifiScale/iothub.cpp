@@ -14,6 +14,7 @@ IotHub::IotHub()
 {
     _refcount = 0;
     _connected = false;
+    _iotHubClientHandle = NULL;
 }
 
 bool IotHub::workPending()
@@ -36,19 +37,27 @@ void IotHub::doWork()
     IoTHubClient_LL_DoWork(_iotHubClientHandle);
 }
 
-void IotHub::init(const char *connection_string, const char *device_name)
+/* returns true on success */
+bool IotHub::init(const char *connection_string, const char *device_name)
 {
     int rc;
 
+    if (_iotHubClientHandle != NULL)
+    {
+        Serial.println("Error: iothub already initialized\r\n");
+        return false;
+    }
     _iotHubClientHandle = IoTHubClient_LL_CreateFromConnectionString(connection_string, MQTT_Protocol);
 
     if (_iotHubClientHandle == NULL)
     {
-        hang("Failed on IoTHubClient_LL_CreateFromConnectionString.");
+        Serial.println("Failed on IoTHubClient_LL_CreateFromConnectionString.");
+        return false;
     }
 
     IoTHubClient_LL_SetOption(_iotHubClientHandle, "product_info", device_name);
     IoTHubClient_LL_SetConnectionStatusCallback(_iotHubClientHandle, connectionCallback, &_connected);
+    return true;
 }
 
 void IotHub::sendMessage(char *buffer)
