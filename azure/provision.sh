@@ -189,7 +189,7 @@ else
   echo "Using existing IOT hub: ${IOTH_NAME}"
 fi
 
-# Verify / provision the iot devices (represents a raspberry pi)
+# Verify / provision the iot devices (represents an Arduino device)
 NODE=1
 while [[ ${NODE} -le ${NUM_NODES} ]]
 do
@@ -210,7 +210,7 @@ do
   fi
   CONSTRING=$(az iot hub device-identity show-connection-string --hub-name ${IOTH_NAME} --device Node${NODE} --query "connectionString" | tr -d '"')
   echo "#########################################################################################"
-  echo "# Node${NODE} Connection String.  Add to raspberrypi/scale.py or azure/emulator/scale.py:"
+  echo "# Node${NODE} Connection String.  Use in Arduino 1st time setup, or add totools/emulator/scale.py"
   echo "# \"${CONSTRING}"\"
   echo "#########################################################################################"
 
@@ -569,8 +569,8 @@ then
 fi
 echo "Configure frontend app"
 cd ${ROOTDIR}/${FRONTEND_LOCAL_DIRECTORY} && \
-sed -i ".tmp" "s#NEED_TO_CONFIGURE_API_URL_IN_ENVIRONMENT.TS_FILE#${WEB_APP_URL}#g" src/environments/environment.ts && \
-sed -i ".tmp" "s#NEED_TO_CONFIGURE_API_URL_IN_ENVIRONMENT.TS_FILE#${WEB_APP_URL}#g" src/environments/environment.prod.ts
+sed -i "s#NEED_TO_CONFIGURE_API_URL_IN_ENVIRONMENT.TS_FILE#${WEB_APP_URL}#g" src/environments/environment.ts && \
+sed -i "s#NEED_TO_CONFIGURE_API_URL_IN_ENVIRONMENT.TS_FILE#${WEB_APP_URL}#g" src/environments/environment.prod.ts
 if [[ $? -ne 0 ]]
 then
   exit -1

@@ -1,5 +1,5 @@
 Python script to generate some dummy data emulating a scale
-device.  If you don't have a raspberry pi connected to a scale,
+device.  If you don't have the arduino hardware working,
 this can be used to fill the pipeline with some data.
 
 Be sure to update the CONNECTION_STRING constant inside the

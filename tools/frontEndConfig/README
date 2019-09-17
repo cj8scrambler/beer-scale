@@ -1,0 +1,18 @@
+Command line utility to configure the configuration database which the
+frontend web app uses.
+
+Be sure to update these 2 variables in the config.py script before running:
+  STORAGE_ACCT_NAME
+  STORAGE_ACCT_KEY
+
+To run in a virutal env:
+  python3 -m venv venv
+  source venv/bin/activate
+  pip install -r requirements.txt
+  python ./config.py
+
+Note: A scale must report some data in order to create an entry in the
+configuration database.  So the arduino based hardware setup, or the
+emulator script needs to be used to populate the configuration database
+before this script is run to edit the details.
+
