@@ -133,7 +133,7 @@ if [[ $? -ne 0 ]]
 then
   echo "Error: Make sure azure cli is installed and authenticated"
   echo "  Install: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli"
-  echo "  Authenicate: az login"
+  echo "  Authenicate: az login --use-device-code"
   exit -1
 fi
 
@@ -241,6 +241,7 @@ fi
 EH_NAMESPACE_CONSTRING=$(az eventhubs namespace authorization-rule keys list -g ${GROUP} --namespace-name ${EH_NAMESPACE} --name RootManageSharedAccessKey --output json --query "primaryConnectionString" 2>/dev/null | tr -d '"')
 if [[ $? -ne 0 ]]
 then
+  echo "Error: couldn't get eventhub namespace connection string"
   exit -1
 fi
 
@@ -264,15 +265,6 @@ then
   fi
 else
   echo "Using existing event hub: ${EH_NAME}"
-fi
-
-# Get eventhub namespace connection string
-EH_CONNECT=$(az eventhubs namespace authorization-rule keys list -g ${GROUP} --namespace-name ${EH_NAMESPACE} --name RootManageSharedAccessKey --output json --query "primaryConnectionString" 2>/dev/null | tr -d '"')
-if [[ $? -ne 0 ]]
-then
-  echo "Error: couldn't get eventhub namespace connection string with:"
-  echo "    az eventhubs namespace authorization-rule keys list -g ${GROUP} --namespace-name ${EH_NAMESPACE} --name RootManageSharedAccessKey --output json --query \"primaryConnectionString\" 2>/dev/null | tr -d '\"'"
-  exit -1
 fi
 
 # Verify / provision storage account
@@ -353,10 +345,10 @@ then
   else
     # Have to append EntityPath to connection string per
     # https://github.com/Azure/azure-event-hubs-spark/blob/master/docs/structured-streaming-eventhubs-integration.md#azure-portal
-    echo "az iot hub routing-endpoint create --hub-name ${IOTH_NAME} --endpoint-name ${IOTH_EH_ENDPOINT_NAME} --endpoint-type eventhub --endpoint-resource-group ${GROUP} --connection-string \"${EH_CONNECT};EntityPath=${EH_NAME}\" --endpoint-subscription-id 1 --output ${OUTPUT}"
+    echo "az iot hub routing-endpoint create --hub-name ${IOTH_NAME} --endpoint-name ${IOTH_EH_ENDPOINT_NAME} --endpoint-type eventhub --endpoint-resource-group ${GROUP} --connection-string \"${EH_NAMESPACE_CONSTRING};EntityPath=${EH_NAME}\" --endpoint-subscription-id 1 --output ${OUTPUT}"
     az iot hub routing-endpoint create --hub-name ${IOTH_NAME} --endpoint-name ${IOTH_EH_ENDPOINT_NAME} \
         --endpoint-type eventhub --endpoint-resource-group ${GROUP}  \
-        --connection-string "${EH_CONNECT};EntityPath=${EH_NAME}" \
+        --connection-string "${EH_NAMESPACE_CONSTRING};EntityPath=${EH_NAME}" \
         --endpoint-subscription-id 1 --output ${OUTPUT}
     if [[ $? -ne 0 ]]
     then
